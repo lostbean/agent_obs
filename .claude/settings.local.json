@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mix :*)",
+      "Bash(mix format)",
+      "Bash(mix precommit:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

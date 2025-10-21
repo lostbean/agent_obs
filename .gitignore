@@ -22,3 +22,14 @@ agent_obs-*.tar
 # Temporary files, for example, from tests.
 /tmp/
 .direnv
+
+# Dialyzer PLT files
+/priv/plts/
+
+# Editor and OS files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

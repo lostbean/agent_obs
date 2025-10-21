@@ -1,0 +1,283 @@
+defmodule AgentObs.Handlers.Phoenix.Translator do
+  @moduledoc """
+  Translates AgentObs event metadata to OpenInference semantic conventions.
+
+  This module is responsible for converting the backend-agnostic AgentObs event
+  metadata into the flattened, indexed attribute format required by OpenInference.
+
+  OpenInference is an extension of OpenTelemetry semantic conventions specifically
+  designed for AI and LLM observability. It enables rich, contextualized visualization
+  in platforms like Arize Phoenix.
+
+  ## OpenInference Span Kinds
+
+  - `AGENT` - Agent loop or orchestration
+  - `LLM` - Large Language Model API call
+  - `TOOL` - Tool or function execution
+  - `CHAIN` - Sequence of operations (not used in AgentObs currently)
+  - `RETRIEVER` - Vector/document retrieval (not used in AgentObs currently)
+
+  ## Key Attributes
+
+  The translator produces flattened attributes following the OpenInference spec:
+  - `openinference.span.kind` - The span kind (AGENT, LLM, TOOL, etc.)
+  - `input.value` / `output.value` - Primary input/output
+  - `llm.model_name` - Model identifier
+  - `llm.input_messages.N.message.role` - Message role (user, assistant, etc.)
+  - `llm.input_messages.N.message.content` - Message content
+  - `llm.token_count.prompt` / `llm.token_count.completion` - Token usage
+  - `tool.name` / `tool.description` - Tool metadata
+
+  ## References
+
+  - OpenInference Spec: https://arize-ai.github.io/openinference/spec/semantic_conventions.html
+  - Arize Phoenix Docs: https://arize.com/docs/phoenix/
+  """
+
+  @doc """
+  Translates start event metadata to OpenInference attributes.
+
+  ## Parameters
+
+  - `event_type` - One of `:agent`, `:tool`, `:llm`, `:prompt`
+  - `metadata` - The start metadata from AgentObs event
+
+  ## Returns
+
+  A map of OpenInference attributes (string keys, primitive values).
+  """
+  @spec from_start_metadata(atom(), map()) :: map()
+  def from_start_metadata(:agent, metadata) do
+    %{
+      "openinference.span.kind" => "AGENT",
+      "input.value" => to_json_safe(metadata.input)
+    }
+    |> maybe_add("llm.model_name", metadata[:model])
+    |> maybe_add_metadata(metadata[:metadata])
+  end
+
+  def from_start_metadata(:tool, metadata) do
+    %{
+      "openinference.span.kind" => "TOOL",
+      "tool.name" => metadata.name
+    }
+    |> maybe_add("tool.description", metadata[:description])
+    |> add_tool_arguments(metadata[:arguments])
+  end
+
+  def from_start_metadata(:llm, metadata) do
+    %{
+      "openinference.span.kind" => "LLM",
+      "llm.model_name" => metadata.model
+    }
+    |> maybe_add("llm.invocation_parameters", encode_invocation_parameters(metadata))
+    |> Map.merge(flatten_input_messages(metadata[:input_messages]))
+  end
+
+  def from_start_metadata(:prompt, metadata) do
+    %{
+      "openinference.span.kind" => "CHAIN",
+      "input.value" => to_json_safe(metadata.variables)
+    }
+    |> maybe_add("llm.prompt_template.template", metadata[:template])
+    |> maybe_add("llm.prompt_template.variables", encode_json(metadata.variables))
+  end
+
+  @doc """
+  Translates stop event metadata to OpenInference attributes.
+
+  ## Parameters
+
+  - `event_type` - One of `:agent`, `:tool`, `:llm`, `:prompt`
+  - `metadata` - The stop metadata from AgentObs event
+  - `measurements` - Measurements map containing duration
+
+  ## Returns
+
+  A map of OpenInference attributes to be added to the span.
+  """
+  @spec from_stop_metadata(atom(), map(), map()) :: map()
+  def from_stop_metadata(:agent, metadata, measurements) do
+    %{
+      "output.value" => to_json_safe(metadata[:output])
+    }
+    |> maybe_add("agent.tools_used", encode_json(metadata[:tools_used]))
+    |> maybe_add("agent.iterations", metadata[:iterations])
+    |> add_duration(measurements)
+  end
+
+  def from_stop_metadata(:tool, metadata, measurements) do
+    %{
+      "output.value" => to_json_safe(metadata[:result])
+    }
+    |> add_duration(measurements)
+  end
+
+  def from_stop_metadata(:llm, metadata, measurements) do
+    %{}
+    |> Map.merge(flatten_output_messages(metadata[:output_messages]))
+    |> maybe_add("llm.token_count.prompt", get_in(metadata, [:tokens, :prompt]))
+    |> maybe_add("llm.token_count.completion", get_in(metadata, [:tokens, :completion]))
+    |> maybe_add("llm.token_count.total", get_in(metadata, [:tokens, :total]))
+    |> maybe_add("llm.cost.total", metadata[:cost])
+    |> maybe_add("output.value", metadata[:finish_reason])
+    |> add_duration(measurements)
+  end
+
+  def from_stop_metadata(:prompt, metadata, measurements) do
+    %{
+      "output.value" => to_json_safe(metadata[:rendered])
+    }
+    |> add_duration(measurements)
+  end
+
+  @doc """
+  Translates exception event metadata to OpenInference attributes.
+
+  ## Parameters
+
+  - `event_type` - One of `:agent`, `:tool`, `:llm`, `:prompt`
+  - `metadata` - The exception metadata from telemetry
+  - `measurements` - Measurements map containing duration
+
+  ## Returns
+
+  A map of OpenInference attributes for the exception.
+  """
+  @spec from_exception_metadata(atom(), map(), map()) :: map()
+  def from_exception_metadata(_event_type, metadata, measurements) do
+    %{
+      "exception.type" => to_string(metadata[:kind] || :error),
+      "exception.message" => exception_message(metadata[:reason]),
+      "exception.escaped" => false
+    }
+    |> add_duration(measurements)
+  end
+
+  # Private helper functions
+
+  defp flatten_input_messages(nil), do: %{}
+
+  defp flatten_input_messages(messages) when is_list(messages) do
+    messages
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {msg, idx}, acc ->
+      acc
+      |> Map.put("llm.input_messages.#{idx}.message.role", to_string(msg.role))
+      |> maybe_add(
+        "llm.input_messages.#{idx}.message.content",
+        msg[:content] && to_string(msg.content)
+      )
+      |> maybe_add_tool_calls("llm.input_messages.#{idx}", msg[:tool_calls])
+    end)
+  end
+
+  defp flatten_output_messages(nil), do: %{}
+
+  defp flatten_output_messages(messages) when is_list(messages) do
+    messages
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {msg, idx}, acc ->
+      acc
+      |> Map.put("llm.output_messages.#{idx}.message.role", to_string(msg.role))
+      |> maybe_add(
+        "llm.output_messages.#{idx}.message.content",
+        msg[:content] && to_string(msg.content)
+      )
+      |> maybe_add_tool_calls("llm.output_messages.#{idx}", msg[:tool_calls])
+    end)
+  end
+
+  defp maybe_add_tool_calls(attrs, _prefix, nil), do: attrs
+
+  defp maybe_add_tool_calls(attrs, prefix, tool_calls) when is_list(tool_calls) do
+    tool_calls
+    |> Enum.with_index()
+    |> Enum.reduce(attrs, fn {tool_call, idx}, acc ->
+      tool_prefix = "#{prefix}.message.tool_calls.#{idx}.tool_call"
+
+      acc
+      |> maybe_add("#{tool_prefix}.function.name", get_in(tool_call, [:function, :name]))
+      |> maybe_add(
+        "#{tool_prefix}.function.arguments",
+        get_in(tool_call, [:function, :arguments])
+      )
+    end)
+  end
+
+  defp add_tool_arguments(attrs, nil), do: attrs
+
+  defp add_tool_arguments(attrs, arguments) when is_map(arguments) do
+    Map.put(attrs, "tool.parameters", encode_json(arguments))
+  end
+
+  defp add_tool_arguments(attrs, arguments) when is_binary(arguments) do
+    Map.put(attrs, "tool.parameters", arguments)
+  end
+
+  defp encode_invocation_parameters(metadata) do
+    params =
+      metadata
+      |> Map.take([
+        :temperature,
+        :max_tokens,
+        :top_p,
+        :top_k,
+        :frequency_penalty,
+        :presence_penalty
+      ])
+      |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+      |> Map.new()
+
+    if map_size(params) > 0 do
+      encode_json(params)
+    else
+      nil
+    end
+  end
+
+  defp add_duration(attrs, measurements) do
+    case Map.get(measurements, :duration) do
+      nil ->
+        attrs
+
+      duration when is_integer(duration) ->
+        # Convert nanoseconds to milliseconds
+        duration_ms = duration / 1_000_000
+        Map.put(attrs, "latency_ms", duration_ms)
+
+      _ ->
+        attrs
+    end
+  end
+
+  defp maybe_add(attrs, _key, nil), do: attrs
+  defp maybe_add(attrs, key, value), do: Map.put(attrs, key, value)
+
+  defp maybe_add_metadata(attrs, nil), do: attrs
+
+  defp maybe_add_metadata(attrs, metadata) when is_map(metadata) do
+    metadata
+    |> Enum.reduce(attrs, fn {key, value}, acc ->
+      Map.put(acc, "metadata.#{key}", to_json_safe(value))
+    end)
+  end
+
+  defp to_json_safe(value) when is_binary(value), do: value
+  defp to_json_safe(value) when is_number(value), do: value
+  defp to_json_safe(value) when is_boolean(value), do: value
+  defp to_json_safe(value) when is_atom(value), do: to_string(value)
+  defp to_json_safe(value) when is_map(value) or is_list(value), do: encode_json(value)
+  defp to_json_safe(nil), do: nil
+
+  defp encode_json(value) do
+    case Jason.encode(value) do
+      {:ok, json} -> json
+      {:error, _} -> inspect(value)
+    end
+  end
+
+  defp exception_message(%{message: message}), do: message
+  defp exception_message(reason) when is_binary(reason), do: reason
+  defp exception_message(reason), do: inspect(reason)
+end
