@@ -12,7 +12,10 @@ defmodule Demo.Agent do
 
   defstruct [:history, :tools, :model]
 
-  @default_model "google:gemini-2.5-flash-lite-preview-09-2025"
+  # Get default model from config, which reads from DEFAULT_MODEL env var
+  defp default_model do
+    Application.get_env(:req_llm, :default_model, "google:gemini-2.5-flash-lite-preview-09-2025")
+  end
 
   # Client API
 
@@ -48,7 +51,7 @@ defmodule Demo.Agent do
       Always use tools when appropriate and provide clear, helpful responses.
       """)
 
-    model = Keyword.get(opts, :model, @default_model)
+    model = Keyword.get(opts, :model, default_model())
     tools = setup_tools()
 
     history = Context.new([Context.system(system_prompt)])

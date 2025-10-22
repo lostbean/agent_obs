@@ -1,14 +1,21 @@
 import Config
 
-# Configure AgentObs with dual backends
+# Configure AgentObs handlers based on OTLP_BACKEND environment variable
+# - OTLP_BACKEND=phoenix (default) -> Uses Phoenix handler with OpenInference
+# - OTLP_BACKEND=jaeger -> Uses Generic handler for standard OTel
+# - OTLP_BACKEND=both -> Uses both handlers (dual instrumentation)
+backend = System.get_env("OTLP_BACKEND", "phoenix")
+
+handlers =
+  case backend do
+    "jaeger" -> [AgentObs.Handlers.Generic]
+    "both" -> [AgentObs.Handlers.Phoenix, AgentObs.Handlers.Generic]
+    _ -> [AgentObs.Handlers.Phoenix]
+  end
+
 config :agent_obs,
   enabled: true,
-  handlers: [
-    # OpenInference for Arize Phoenix
-    AgentObs.Handlers.Phoenix
-    # Generic OTel for Jaeger - temporarily disabled to test Phoenix handler
-    # AgentObs.Handlers.Generic
-  ],
+  handlers: handlers,
   event_prefix: [:demo]
 
 # Configure logger

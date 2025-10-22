@@ -45,11 +45,19 @@ This will:
 
 ### 3. Run Demo Scenarios
 
+You can run the demo with different observability backends:
+
+#### Option A: Run with Phoenix (OpenInference format)
 ```bash
-./scripts/run_demo.sh
+./scripts/run_demo_phoenix.sh
 ```
 
-This runs three demo scenarios:
+#### Option B: Run with Jaeger (Generic OpenTelemetry)
+```bash
+./scripts/run_demo_jaeger.sh
+```
+
+Each script runs four demo scenarios:
 1. **Calculator** - Math operations with tool calling
 2. **Weather** - Information retrieval (mocked)
 3. **Multi-step** - Complex agent loop with multiple tools
@@ -60,11 +68,15 @@ This runs three demo scenarios:
 - URL: http://localhost:6006
 - Look for service: `agent_obs_demo`
 - Features rich LLM context: messages, token counts, tool calls
+- Run demo with: `./scripts/run_demo_phoenix.sh`
 
 **Jaeger (Generic OpenTelemetry):**
 - URL: http://localhost:16686
 - Look for service: `agent_obs_demo`
 - Shows basic span structure and timing
+- Run demo with: `./scripts/run_demo_jaeger.sh`
+
+💡 **Tip:** Run the demo twice (once with each backend) to compare how the same traces appear in different UIs!
 
 ### 5. Stop Services
 
@@ -115,16 +127,20 @@ Complex agent loop with multiple operations:
 You can run individual scenarios or custom questions:
 
 ```bash
-# Run specific scenario
-./scripts/run_demo.sh calculator_demo
-./scripts/run_demo.sh weather_demo
-./scripts/run_demo.sh multi_step_demo
+# Run specific scenario with Phoenix
+./scripts/run_demo_phoenix.sh calculator_demo
+./scripts/run_demo_phoenix.sh weather_demo
+./scripts/run_demo_phoenix.sh multi_step_demo
+
+# Run specific scenario with Jaeger
+./scripts/run_demo_jaeger.sh calculator_demo
 
 # Run custom question (from Elixir)
-mix run -e 'Demo.Scenarios.custom("What is 2 + 2?")'
+OTLP_BACKEND=phoenix mix run -e 'Demo.Scenarios.custom("What is 2 + 2?")'
+OTLP_BACKEND=jaeger mix run -e 'Demo.Scenarios.custom("What is 2 + 2?")'
 
 # Interactive mode
-iex -S mix
+OTLP_BACKEND=phoenix iex -S mix
 iex> Demo.Scenarios.custom("Your question here")
 ```
 
@@ -209,7 +225,8 @@ demo/
 │   │   └── scenarios.ex    # Demo scenarios
 └── scripts/
     ├── start.sh            # Start all services
-    ├── run_demo.sh         # Run demos
+    ├── run_demo_phoenix.sh # Run demo with Phoenix backend
+    ├── run_demo_jaeger.sh  # Run demo with Jaeger backend
     └── stop.sh             # Stop services
 ```
 
@@ -223,8 +240,9 @@ ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 
 # Observability (defaults work with Docker Compose)
-ARIZE_PHOENIX_OTLP_ENDPOINT=http://localhost:6006/v1/traces
-JAEGER_OTLP_ENDPOINT=http://localhost:4318/v1/traces
+# Note: OpenTelemetry library automatically appends /v1/traces
+ARIZE_PHOENIX_OTLP_ENDPOINT=http://localhost:6006
+JAEGER_OTLP_ENDPOINT=http://localhost:4318
 
 # Service name
 OTEL_SERVICE_NAME=agent_obs_demo
@@ -235,14 +253,44 @@ DEFAULT_MODEL=anthropic:claude-sonnet-4-20250514
 
 ### AgentObs Configuration (config/config.exs)
 
+The demo supports switching backends via the `OTLP_BACKEND` environment variable:
+
 ```elixir
+# OTLP_BACKEND=phoenix (default) → Uses Phoenix handler with OpenInference
+# OTLP_BACKEND=jaeger → Uses Generic handler for standard OTel
+# OTLP_BACKEND=both → Uses both handlers (dual instrumentation)
+
+backend = System.get_env("OTLP_BACKEND", "phoenix")
+
+handlers =
+  case backend do
+    "jaeger" -> [AgentObs.Handlers.Generic]
+    "both" -> [AgentObs.Handlers.Phoenix, AgentObs.Handlers.Generic]
+    _ -> [AgentObs.Handlers.Phoenix]
+  end
+
 config :agent_obs,
   enabled: true,
-  handlers: [
-    AgentObs.Handlers.Phoenix,  # OpenInference → Phoenix
-    AgentObs.Handlers.Generic   # Generic OTel → Jaeger
-  ],
+  handlers: handlers,
   event_prefix: [:demo]
+```
+
+### OpenTelemetry Configuration (config/runtime.exs)
+
+The OTLP exporter endpoint is configured based on the backend:
+
+```elixir
+backend = System.get_env("OTLP_BACKEND", "phoenix")
+
+otlp_endpoint =
+  case backend do
+    "jaeger" -> "http://localhost:4318"  # Jaeger OTLP endpoint
+    _ -> "http://localhost:6006"         # Phoenix OTLP endpoint
+  end
+
+config :opentelemetry_exporter,
+  otlp_protocol: :http_protobuf,
+  otlp_endpoint: otlp_endpoint
 ```
 
 ## 🐛 Troubleshooting
