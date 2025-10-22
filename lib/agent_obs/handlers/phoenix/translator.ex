@@ -386,23 +386,29 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
   defp format_stacktrace([]), do: nil
 
   defp format_stacktrace(stacktrace) when is_list(stacktrace) do
-    stacktrace
-    |> Enum.map(fn
+    Enum.map_join(stacktrace, "\n", fn
       {module, function, arity, location} ->
         file = Keyword.get(location, :file, "unknown")
         line = Keyword.get(location, :line, 0)
-        "#{module}.#{function}/#{arity} (#{file}:#{line})"
+        "#{format_module_name(module)}.#{function}/#{arity} (#{file}:#{line})"
 
       {module, function, arity} ->
-        "#{module}.#{function}/#{arity}"
+        "#{format_module_name(module)}.#{function}/#{arity}"
 
       other ->
         inspect(other)
     end)
-    |> Enum.join("\n")
   end
 
   defp format_stacktrace(_), do: nil
+
+  defp format_module_name(module) when is_atom(module) do
+    module
+    |> to_string()
+    |> String.trim_leading("Elixir.")
+  end
+
+  defp format_module_name(module), do: to_string(module)
 
   # Extract provider from model string (e.g., "anthropic:claude-3" -> "anthropic")
   defp extract_provider(model) when is_binary(model) do

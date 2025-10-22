@@ -13,3 +13,6 @@ config :opentelemetry,
 config :opentelemetry_exporter,
   otlp_protocol: :http_protobuf,
   otlp_endpoint: "http://localhost:4318"
+
+# Set log level to warning to reduce test output noise
+config :logger, level: :warning

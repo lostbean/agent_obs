@@ -13,7 +13,8 @@
       "mcp__chrome-devtools__fill",
       "Bash(./scripts/run_demo.sh:*)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:opentelemetry.io)"
+      "WebFetch(domain:opentelemetry.io)",
+      "Bash(mix test)"
     ],
     "deny": [],
     "ask": []

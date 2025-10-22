@@ -14,11 +14,32 @@ defmodule AgentObs.Handlers.Phoenix.TranslatorTest do
       assert attributes["input.value"] == "What's the weather?"
     end
 
+    test "includes input MIME type" do
+      metadata = %{name: "agent", input: "task"}
+      attributes = Translator.from_start_metadata(:agent, metadata)
+
+      assert attributes["input.mime_type"] == "text/plain"
+    end
+
     test "includes optional model name" do
       metadata = %{name: "agent", input: "task", model: "gpt-4o"}
       attributes = Translator.from_start_metadata(:agent, metadata)
 
       assert attributes["llm.model_name"] == "gpt-4o"
+    end
+
+    test "includes optional session ID" do
+      metadata = %{name: "agent", input: "task", session_id: "session-123"}
+      attributes = Translator.from_start_metadata(:agent, metadata)
+
+      assert attributes["session.id"] == "session-123"
+    end
+
+    test "includes optional user ID" do
+      metadata = %{name: "agent", input: "task", user_id: "user-456"}
+      attributes = Translator.from_start_metadata(:agent, metadata)
+
+      assert attributes["user.id"] == "user-456"
     end
   end
 
@@ -160,6 +181,62 @@ defmodule AgentObs.Handlers.Phoenix.TranslatorTest do
       assert attributes["agent.iterations"] == 2
       assert attributes["latency_ms"] == 1500.0
     end
+
+    test "includes output MIME type" do
+      metadata = %{output: "result"}
+      measurements = %{}
+
+      attributes = Translator.from_stop_metadata(:agent, metadata, measurements)
+
+      assert attributes["output.mime_type"] == "text/plain"
+    end
+
+    test "formats tools_used as indexed array" do
+      metadata = %{output: "done", tools_used: ["web_search", "calculator"]}
+      measurements = %{}
+
+      attributes = Translator.from_stop_metadata(:agent, metadata, measurements)
+
+      assert attributes["agent.tools_used.0"] == "web_search"
+      assert attributes["agent.tools_used.1"] == "calculator"
+      # Should NOT have a plain "agent.tools_used" key with JSON string
+      refute Map.has_key?(attributes, "agent.tools_used")
+    end
+
+    test "handles empty tools_used list" do
+      metadata = %{output: "done", tools_used: []}
+      measurements = %{}
+
+      attributes = Translator.from_stop_metadata(:agent, metadata, measurements)
+
+      # No tools_used attributes should be present
+      refute Map.has_key?(attributes, "agent.tools_used")
+      refute Map.has_key?(attributes, "agent.tools_used.0")
+    end
+
+    test "includes token counts at agent level" do
+      metadata = %{
+        output: "done",
+        tokens: %{prompt: 100, completion: 50, total: 150}
+      }
+
+      measurements = %{}
+
+      attributes = Translator.from_stop_metadata(:agent, metadata, measurements)
+
+      assert attributes["llm.token_count.prompt"] == 100
+      assert attributes["llm.token_count.completion"] == 50
+      assert attributes["llm.token_count.total"] == 150
+    end
+
+    test "includes cost at agent level" do
+      metadata = %{output: "done", cost: 0.00123}
+      measurements = %{}
+
+      attributes = Translator.from_stop_metadata(:agent, metadata, measurements)
+
+      assert attributes["llm.cost.total"] == 0.00123
+    end
   end
 
   describe "from_stop_metadata/3 for LLM events" do
@@ -232,9 +309,104 @@ defmodule AgentObs.Handlers.Phoenix.TranslatorTest do
 
       attributes = Translator.from_exception_metadata(:agent, metadata, measurements)
 
-      assert attributes["exception.type"] == "error"
+      assert attributes["exception.type"] == "RuntimeError"
       assert attributes["exception.message"] =~ "Something went wrong"
       assert attributes["exception.escaped"] == false
+    end
+
+    test "extracts exception type from Exception struct" do
+      metadata = %{
+        kind: :error,
+        reason: %ArithmeticError{message: "bad argument"},
+        stacktrace: []
+      }
+
+      measurements = %{}
+
+      attributes = Translator.from_exception_metadata(:llm, metadata, measurements)
+
+      assert attributes["exception.type"] == "ArithmeticError"
+      assert attributes["exception.message"] == "bad argument"
+    end
+
+    test "uses kind when reason is not an Exception" do
+      metadata = %{
+        kind: :throw,
+        reason: :something_bad,
+        stacktrace: []
+      }
+
+      measurements = %{}
+
+      attributes = Translator.from_exception_metadata(:tool, metadata, measurements)
+
+      assert attributes["exception.type"] == "throw"
+      assert attributes["exception.message"] == ":something_bad"
+    end
+
+    test "formats stacktrace with file and line info" do
+      metadata = %{
+        kind: :error,
+        reason: %RuntimeError{message: "Error"},
+        stacktrace: [
+          {MyModule, :my_function, 2, [file: ~c"lib/my_module.ex", line: 42]},
+          {OtherModule, :other_function, 1, [file: ~c"lib/other.ex", line: 100]}
+        ]
+      }
+
+      measurements = %{}
+
+      attributes = Translator.from_exception_metadata(:agent, metadata, measurements)
+
+      assert attributes["exception.stacktrace"] =~ "MyModule.my_function/2"
+      assert attributes["exception.stacktrace"] =~ "lib/my_module.ex:42"
+      assert attributes["exception.stacktrace"] =~ "OtherModule.other_function/1"
+      assert attributes["exception.stacktrace"] =~ "lib/other.ex:100"
+    end
+
+    test "formats stacktrace without location info" do
+      metadata = %{
+        kind: :error,
+        reason: %RuntimeError{message: "Error"},
+        stacktrace: [
+          {SomeModule, :some_function, 3}
+        ]
+      }
+
+      measurements = %{}
+
+      attributes = Translator.from_exception_metadata(:agent, metadata, measurements)
+
+      assert attributes["exception.stacktrace"] == "SomeModule.some_function/3"
+    end
+
+    test "handles empty stacktrace" do
+      metadata = %{
+        kind: :error,
+        reason: %RuntimeError{message: "Error"},
+        stacktrace: []
+      }
+
+      measurements = %{}
+
+      attributes = Translator.from_exception_metadata(:agent, metadata, measurements)
+
+      # Should not have stacktrace attribute if empty
+      refute Map.has_key?(attributes, "exception.stacktrace")
+    end
+
+    test "includes duration in exception metadata" do
+      metadata = %{
+        kind: :error,
+        reason: %RuntimeError{message: "Error"},
+        stacktrace: []
+      }
+
+      measurements = %{duration: 500_000_000}
+
+      attributes = Translator.from_exception_metadata(:agent, metadata, measurements)
+
+      assert attributes["latency_ms"] == 500.0
     end
   end
 end

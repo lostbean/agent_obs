@@ -192,14 +192,12 @@ defmodule AgentObs.Handlers.Phoenix do
             # Set span status based on whether operation succeeded or failed
             # According to OpenTelemetry spec, status should be Ok for successful operations
             # and Error for failures. Check for :error key in metadata.
-            cond do
-              Map.has_key?(metadata, :error) ->
-                error_msg = format_error_message(metadata[:error])
-                Tracer.set_status(OpenTelemetry.status(:error, error_msg))
-
-              true ->
-                # Successful completion - set status to Ok
-                Tracer.set_status(OpenTelemetry.status(:ok))
+            if Map.has_key?(metadata, :error) do
+              error_msg = format_error_message(metadata[:error])
+              Tracer.set_status(OpenTelemetry.status(:error, error_msg))
+            else
+              # Successful completion - set status to Ok
+              Tracer.set_status(OpenTelemetry.status(:ok))
             end
 
             # End the span

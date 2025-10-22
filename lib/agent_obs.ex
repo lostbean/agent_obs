@@ -98,6 +98,7 @@ defmodule AgentObs do
       end)
   """
   @spec trace_agent(String.t(), metadata(), trace_fun()) :: trace_result()
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   def trace_agent(name, metadata, fun) when is_binary(name) and is_function(fun, 0) do
     start_metadata = Map.merge(metadata, %{name: name})
 
@@ -175,6 +176,7 @@ defmodule AgentObs do
       end)
   """
   @spec trace_tool(String.t(), metadata(), trace_fun()) :: trace_result()
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   def trace_tool(tool_name, metadata, fun) when is_binary(tool_name) and is_function(fun, 0) do
     start_metadata = Map.merge(metadata, %{name: tool_name})
 
@@ -332,6 +334,7 @@ defmodule AgentObs do
       end)
   """
   @spec trace_prompt(String.t(), metadata(), trace_fun()) :: trace_result()
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   def trace_prompt(template_name, metadata, fun)
       when is_binary(template_name) and is_function(fun, 0) do
     start_metadata = Map.merge(metadata, %{name: template_name})

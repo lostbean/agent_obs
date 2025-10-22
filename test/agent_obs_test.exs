@@ -30,6 +30,59 @@ defmodule AgentObsTest do
 
       assert {:error, :some_reason} = result
     end
+
+    test "captures exceptions with stacktraces" do
+      result =
+        AgentObs.trace_agent("test_agent", %{input: "test"}, fn ->
+          raise RuntimeError, "Test error"
+        end)
+
+      assert {:error, %{exception: exception, stacktrace: stacktrace}} = result
+      assert exception.__struct__ == RuntimeError
+      assert Exception.message(exception) == "Test error"
+      assert is_list(stacktrace)
+      assert length(stacktrace) > 0
+    end
+
+    test "captures throw with stacktraces" do
+      result =
+        AgentObs.trace_agent("test_agent", %{input: "test"}, fn ->
+          throw(:something_bad)
+        end)
+
+      assert {:error, %{kind: :throw, reason: :something_bad, stacktrace: stacktrace}} = result
+      assert is_list(stacktrace)
+    end
+
+    test "captures exit with stacktraces" do
+      result =
+        AgentObs.trace_agent("test_agent", %{input: "test"}, fn ->
+          exit(:normal)
+        end)
+
+      assert {:error, %{kind: :exit, reason: :normal, stacktrace: stacktrace}} = result
+      assert is_list(stacktrace)
+    end
+
+    test "handles {:error, binary} format" do
+      result =
+        AgentObs.trace_agent("test_agent", %{input: "test"}, fn ->
+          {:error, "Something went wrong"}
+        end)
+
+      assert {:error, "Something went wrong"} = result
+    end
+
+    test "handles {:error, exception} format" do
+      exception = %RuntimeError{message: "Custom error"}
+
+      result =
+        AgentObs.trace_agent("test_agent", %{input: "test"}, fn ->
+          {:error, exception}
+        end)
+
+      assert {:error, ^exception} = result
+    end
   end
 
   describe "trace_tool/3" do
@@ -40,6 +93,25 @@ defmodule AgentObsTest do
         end)
 
       assert {:ok, %{temp: 72, condition: "sunny"}} = result
+    end
+
+    test "captures tool execution exceptions" do
+      result =
+        AgentObs.trace_tool("calculator", %{arguments: %{op: "divide", a: 1, b: 0}}, fn ->
+          raise ArithmeticError, "division by zero"
+        end)
+
+      assert {:error, %{exception: exception, stacktrace: _stacktrace}} = result
+      assert exception.__struct__ == ArithmeticError
+    end
+
+    test "handles tool errors" do
+      result =
+        AgentObs.trace_tool("search", %{arguments: %{query: "test"}}, fn ->
+          {:error, "API rate limit exceeded"}
+        end)
+
+      assert {:error, "API rate limit exceeded"} = result
     end
   end
 
@@ -65,6 +137,25 @@ defmodule AgentObsTest do
         end)
 
       assert {:ok, "response", %{}} = result
+    end
+
+    test "captures LLM API exceptions" do
+      result =
+        AgentObs.trace_llm("gpt-4o", %{input_messages: [%{role: "user", content: "Hi"}]}, fn ->
+          raise "API timeout"
+        end)
+
+      assert {:error, %{exception: exception, stacktrace: _stacktrace}} = result
+      assert Exception.message(exception) == "API timeout"
+    end
+
+    test "handles LLM API errors" do
+      result =
+        AgentObs.trace_llm("gpt-4o", %{input_messages: [%{role: "user", content: "Hi"}]}, fn ->
+          {:error, %{status: 429, message: "Rate limit exceeded"}}
+        end)
+
+      assert {:error, %{status: 429, message: "Rate limit exceeded"}} = result
     end
   end
 
