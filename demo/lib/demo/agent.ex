@@ -111,18 +111,20 @@ defmodule Demo.Agent do
             # Extract token usage from stream response metadata
             tokens = extract_token_usage(stream_response)
 
-            output_messages = if tool_calls != [] do
-              [%{role: "assistant", content: text, tool_calls: tool_calls}]
-            else
-              [%{role: "assistant", content: text}]
-            end
+            output_messages =
+              if tool_calls != [] do
+                [%{role: "assistant", content: text, tool_calls: tool_calls}]
+              else
+                [%{role: "assistant", content: text}]
+              end
 
-            {:ok, text, %{
-              tool_calls: tool_calls,
-              history: history,
-              output_messages: output_messages,
-              tokens: tokens
-            }}
+            {:ok, text,
+             %{
+               tool_calls: tool_calls,
+               history: history,
+               output_messages: output_messages,
+               tokens: tokens
+             }}
 
           {:error, error} ->
             {:error, error}
@@ -224,10 +226,11 @@ defmodule Demo.Agent do
             # Extract token usage
             tokens = extract_token_usage(stream_response)
 
-            {:ok, final_text, %{
-              output_messages: [%{role: "assistant", content: final_text}],
-              tokens: tokens
-            }}
+            {:ok, final_text,
+             %{
+               output_messages: [%{role: "assistant", content: final_text}],
+               tokens: tokens
+             }}
 
           {:error, error} ->
             {:error, error}

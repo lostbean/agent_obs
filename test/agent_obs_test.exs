@@ -1,6 +1,8 @@
 defmodule AgentObsTest do
   use ExUnit.Case, async: true
 
+  @moduletag :capture_log
+
   describe "trace_agent/3" do
     test "executes function and returns result" do
       result =

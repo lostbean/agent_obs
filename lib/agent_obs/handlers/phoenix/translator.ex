@@ -313,13 +313,12 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
 
   defp extract_text_content(content) when is_list(content) do
     content
-    |> Enum.map(fn
+    |> Enum.map_join("\n", fn
       %{type: :text, text: text} -> text
       %{text: text} -> text
       text when is_binary(text) -> text
       _ -> ""
     end)
-    |> Enum.join("\n")
     |> case do
       "" -> nil
       text -> text
@@ -327,8 +326,19 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
   end
 
   # Helper to safely access tool call fields (handles both maps and structs)
+  # Supports both flat format (name/arguments) and nested format (function: %{name, arguments})
   defp get_tool_call_field(tool_call, field) when is_map(tool_call) do
-    Map.get(tool_call, field)
+    case Map.get(tool_call, field) do
+      nil ->
+        # Try nested function format (OpenAI-style)
+        case Map.get(tool_call, :function) do
+          %{} = func -> Map.get(func, field)
+          _ -> nil
+        end
+
+      value ->
+        value
+    end
   end
 
   defp exception_message(%{message: message}), do: message

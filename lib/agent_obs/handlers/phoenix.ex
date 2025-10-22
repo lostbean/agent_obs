@@ -135,10 +135,8 @@ defmodule AgentObs.Handlers.Phoenix do
 
   @impl GenServer
   def init(opts) do
-    case attach(opts) do
-      {:ok, state} -> {:ok, state}
-      {:error, reason} -> {:stop, reason}
-    end
+    {:ok, state} = attach(opts)
+    {:ok, state}
   end
 
   @impl GenServer

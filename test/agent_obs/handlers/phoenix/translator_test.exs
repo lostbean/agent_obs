@@ -1,6 +1,8 @@
 defmodule AgentObs.Handlers.Phoenix.TranslatorTest do
   use ExUnit.Case, async: true
 
+  @moduletag :capture_log
+
   alias AgentObs.Handlers.Phoenix.Translator
 
   describe "from_start_metadata/2 for agent events" do
@@ -57,6 +59,45 @@ defmodule AgentObs.Handlers.Phoenix.TranslatorTest do
       assert attributes["llm.model_name"] == "gpt-4o"
     end
 
+    test "sets gen_ai.system from model string (regression test)" do
+      metadata = %{model: "anthropic:claude-3-sonnet", input_messages: []}
+
+      attrs = Translator.from_start_metadata(:llm, metadata)
+
+      assert attrs["gen_ai.system"] == "anthropic"
+      assert attrs["gen_ai.request.model"] == "anthropic:claude-3-sonnet"
+    end
+
+    test "extracts provider from various model formats" do
+      test_cases = [
+        {"anthropic:claude-3-sonnet", "anthropic"},
+        {"openai:gpt-4", "openai"},
+        {"google:gemini-pro", "google"},
+        {"gpt-4", "openai"},
+        {"claude-3", "anthropic"},
+        {"gemini-pro", "google"},
+        {"unknown-model", "unknown"}
+      ]
+
+      Enum.each(test_cases, fn {model, expected} ->
+        metadata = %{model: model, input_messages: []}
+        attrs = Translator.from_start_metadata(:llm, metadata)
+
+        assert attrs["gen_ai.system"] == expected,
+               "Expected #{expected} for model #{model}, got #{attrs["gen_ai.system"]}"
+      end)
+    end
+
+    test "sets AI Observability Working Group attributes" do
+      metadata = %{model: "anthropic:claude-3", input_messages: []}
+
+      attrs = Translator.from_start_metadata(:llm, metadata)
+
+      assert attrs["ai.operationId"] == "ai.generateText.doGenerate"
+      assert attrs["ai.model.id"] == "anthropic:claude-3"
+      assert attrs["ai.model.provider"] == "anthropic"
+    end
+
     test "flattens input messages correctly" do
       metadata = %{
         model: "gpt-4o",
@@ -84,7 +125,8 @@ defmodule AgentObs.Handlers.Phoenix.TranslatorTest do
               %{
                 function: %{
                   name: "get_weather",
-                  arguments: ~s({"city": "SF"})
+                  # Arguments as map (will be JSON-encoded by translator)
+                  arguments: %{city: "SF"}
                 }
               }
             ]
@@ -97,8 +139,13 @@ defmodule AgentObs.Handlers.Phoenix.TranslatorTest do
       assert attributes["llm.input_messages.0.message.tool_calls.0.tool_call.function.name"] ==
                "get_weather"
 
-      assert attributes["llm.input_messages.0.message.tool_calls.0.tool_call.function.arguments"] ==
-               ~s({"city": "SF"})
+      # Arguments should be JSON-encoded
+      args_json =
+        attributes["llm.input_messages.0.message.tool_calls.0.tool_call.function.arguments"]
+
+      assert is_binary(args_json)
+      assert String.contains?(args_json, "city")
+      assert String.contains?(args_json, "SF")
     end
   end
 
@@ -145,6 +192,31 @@ defmodule AgentObs.Handlers.Phoenix.TranslatorTest do
 
       assert attributes["llm.output_messages.0.message.role"] == "assistant"
       assert attributes["llm.output_messages.0.message.content"] == "Response"
+    end
+
+    test "sets gen_ai.usage.* attributes (regression test for GenAI compatibility)" do
+      metadata = %{
+        output_messages: [],
+        tokens: %{prompt: 150, completion: 75}
+      }
+
+      measurements = %{duration: 1_000_000_000}
+
+      attrs = Translator.from_stop_metadata(:llm, metadata, measurements)
+
+      assert attrs["gen_ai.usage.input_tokens"] == 150
+      assert attrs["gen_ai.usage.output_tokens"] == 75
+    end
+
+    test "handles missing token data gracefully" do
+      metadata = %{output_messages: []}
+      measurements = %{duration: 1_000_000_000}
+
+      attrs = Translator.from_stop_metadata(:llm, metadata, measurements)
+
+      # Should not crash, just not include token attributes
+      refute Map.has_key?(attrs, "llm.token_count.prompt")
+      refute Map.has_key?(attrs, "gen_ai.usage.input_tokens")
     end
   end
 

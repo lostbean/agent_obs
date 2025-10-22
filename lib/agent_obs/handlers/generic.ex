@@ -117,10 +117,8 @@ defmodule AgentObs.Handlers.Generic do
 
   @impl GenServer
   def init(opts) do
-    case attach(opts) do
-      {:ok, state} -> {:ok, state}
-      {:error, reason} -> {:stop, reason}
-    end
+    {:ok, state} = attach(opts)
+    {:ok, state}
   end
 
   @impl GenServer
@@ -148,14 +146,15 @@ defmodule AgentObs.Handlers.Generic do
   defp handle_stop(event_type, measurements, metadata) do
     span_key = span_context_key(event_type)
 
-    with span_ctx when not is_nil(span_ctx) <- Process.get(span_key) do
-      attributes = build_stop_attributes(event_type, metadata, measurements)
+    case Process.get(span_key) do
+      span_ctx when not is_nil(span_ctx) ->
+        attributes = build_stop_attributes(event_type, metadata, measurements)
 
-      Tracer.set_attributes(attributes)
-      Tracer.end_span()
+        Tracer.set_attributes(attributes)
+        Tracer.end_span()
 
-      Process.delete(span_key)
-    else
+        Process.delete(span_key)
+
       nil ->
         Logger.warning(
           "AgentObs.Handlers.Generic: No active span found for #{event_type} :stop event"
@@ -168,17 +167,18 @@ defmodule AgentObs.Handlers.Generic do
   defp handle_exception(event_type, _measurements, metadata) do
     span_key = span_context_key(event_type)
 
-    with span_ctx when not is_nil(span_ctx) <- Process.get(span_key) do
-      kind = metadata[:kind] || :error
-      reason = metadata[:reason] || "Unknown error"
-      stacktrace = metadata[:stacktrace] || []
+    case Process.get(span_key) do
+      span_ctx when not is_nil(span_ctx) ->
+        kind = metadata[:kind] || :error
+        reason = metadata[:reason] || "Unknown error"
+        stacktrace = metadata[:stacktrace] || []
 
-      Tracer.record_exception(kind, reason, stacktrace)
-      Tracer.set_status(OpenTelemetry.status(:error, "Exception occurred"))
-      Tracer.end_span()
+        Tracer.record_exception(kind, reason, stacktrace)
+        Tracer.set_status(OpenTelemetry.status(:error, "Exception occurred"))
+        Tracer.end_span()
 
-      Process.delete(span_key)
-    else
+        Process.delete(span_key)
+
       nil ->
         Logger.warning(
           "AgentObs.Handlers.Generic: No active span found for #{event_type} :exception event"

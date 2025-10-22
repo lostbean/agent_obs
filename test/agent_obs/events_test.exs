@@ -1,6 +1,8 @@
 defmodule AgentObs.EventsTest do
   use ExUnit.Case, async: true
 
+  @moduletag :capture_log
+
   alias AgentObs.Events
 
   describe "validate_event/3 for agent events" do

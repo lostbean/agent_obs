@@ -101,29 +101,30 @@ defmodule AgentObs do
   def trace_agent(name, metadata, fun) when is_binary(name) and is_function(fun, 0) do
     start_metadata = Map.merge(metadata, %{name: name})
 
-    with :ok <- Events.validate_event(:agent, :start, start_metadata) do
-      event_name = event_prefix() ++ [:agent]
+    case Events.validate_event(:agent, :start, start_metadata) do
+      :ok ->
+        event_name = event_prefix() ++ [:agent]
 
-      :telemetry.span(event_name, start_metadata, fn ->
-        case safe_execute(fun) do
-          {:ok, output} ->
-            stop_metadata = %{output: output}
-            {{:ok, output}, stop_metadata}
+        :telemetry.span(event_name, start_metadata, fn ->
+          case safe_execute(fun) do
+            {:ok, output} ->
+              stop_metadata = %{output: output}
+              {{:ok, output}, stop_metadata}
 
-          {:ok, output, extra_metadata} ->
-            stop_metadata = Map.put(extra_metadata, :output, output)
-            {{:ok, output, extra_metadata}, stop_metadata}
+            {:ok, output, extra_metadata} ->
+              stop_metadata = Map.put(extra_metadata, :output, output)
+              {{:ok, output, extra_metadata}, stop_metadata}
 
-          {:error, reason} = error ->
-            stop_metadata = %{error: reason}
-            {error, stop_metadata}
+            {:error, reason} = error ->
+              stop_metadata = %{error: reason}
+              {error, stop_metadata}
 
-          other ->
-            stop_metadata = %{output: other}
-            {other, stop_metadata}
-        end
-      end)
-    else
+            other ->
+              stop_metadata = %{output: other}
+              {other, stop_metadata}
+          end
+        end)
+
       {:error, reason} ->
         Logger.warning("Invalid agent metadata: #{reason}")
         fun.()
@@ -158,29 +159,30 @@ defmodule AgentObs do
   def trace_tool(tool_name, metadata, fun) when is_binary(tool_name) and is_function(fun, 0) do
     start_metadata = Map.merge(metadata, %{name: tool_name})
 
-    with :ok <- Events.validate_event(:tool, :start, start_metadata) do
-      event_name = event_prefix() ++ [:tool]
+    case Events.validate_event(:tool, :start, start_metadata) do
+      :ok ->
+        event_name = event_prefix() ++ [:tool]
 
-      :telemetry.span(event_name, start_metadata, fn ->
-        case safe_execute(fun) do
-          {:ok, result} ->
-            stop_metadata = %{result: result}
-            {{:ok, result}, stop_metadata}
+        :telemetry.span(event_name, start_metadata, fn ->
+          case safe_execute(fun) do
+            {:ok, result} ->
+              stop_metadata = %{result: result}
+              {{:ok, result}, stop_metadata}
 
-          {:ok, result, extra_metadata} ->
-            stop_metadata = Map.put(extra_metadata, :result, result)
-            {{:ok, result, extra_metadata}, stop_metadata}
+            {:ok, result, extra_metadata} ->
+              stop_metadata = Map.put(extra_metadata, :result, result)
+              {{:ok, result, extra_metadata}, stop_metadata}
 
-          {:error, reason} = error ->
-            stop_metadata = %{error: reason}
-            {error, stop_metadata}
+            {:error, reason} = error ->
+              stop_metadata = %{error: reason}
+              {error, stop_metadata}
 
-          other ->
-            stop_metadata = %{result: other}
-            {other, stop_metadata}
-        end
-      end)
-    else
+            other ->
+              stop_metadata = %{result: other}
+              {other, stop_metadata}
+          end
+        end)
+
       {:error, reason} ->
         Logger.warning("Invalid tool metadata: #{reason}")
         fun.()
@@ -224,24 +226,25 @@ defmodule AgentObs do
     start_metadata = Map.put(metadata, :model, model)
     normalized_start = Events.normalize_metadata(:llm, :start, start_metadata)
 
-    with :ok <- Events.validate_event(:llm, :start, normalized_start) do
-      event_name = event_prefix() ++ [:llm]
+    case Events.validate_event(:llm, :start, normalized_start) do
+      :ok ->
+        event_name = event_prefix() ++ [:llm]
 
-      :telemetry.span(event_name, normalized_start, fn ->
-        case safe_execute(fun) do
-          {:ok, response, stop_metadata} ->
-            normalized_stop = Events.normalize_metadata(:llm, :stop, stop_metadata)
-            {{:ok, response, stop_metadata}, normalized_stop}
+        :telemetry.span(event_name, normalized_start, fn ->
+          case safe_execute(fun) do
+            {:ok, response, stop_metadata} ->
+              normalized_stop = Events.normalize_metadata(:llm, :stop, stop_metadata)
+              {{:ok, response, stop_metadata}, normalized_stop}
 
-          {:error, reason} = error ->
-            stop_metadata = %{error: reason}
-            {error, stop_metadata}
+            {:error, reason} = error ->
+              stop_metadata = %{error: reason}
+              {error, stop_metadata}
 
-          other ->
-            {other, %{}}
-        end
-      end)
-    else
+            other ->
+              {other, %{}}
+          end
+        end)
+
       {:error, reason} ->
         Logger.warning("Invalid LLM metadata: #{reason}")
         fun.()
@@ -276,29 +279,30 @@ defmodule AgentObs do
       when is_binary(template_name) and is_function(fun, 0) do
     start_metadata = Map.merge(metadata, %{name: template_name})
 
-    with :ok <- Events.validate_event(:prompt, :start, start_metadata) do
-      event_name = event_prefix() ++ [:prompt]
+    case Events.validate_event(:prompt, :start, start_metadata) do
+      :ok ->
+        event_name = event_prefix() ++ [:prompt]
 
-      :telemetry.span(event_name, start_metadata, fn ->
-        case safe_execute(fun) do
-          {:ok, rendered} ->
-            stop_metadata = %{rendered: rendered}
-            {{:ok, rendered}, stop_metadata}
+        :telemetry.span(event_name, start_metadata, fn ->
+          case safe_execute(fun) do
+            {:ok, rendered} ->
+              stop_metadata = %{rendered: rendered}
+              {{:ok, rendered}, stop_metadata}
 
-          {:ok, rendered, extra_metadata} ->
-            stop_metadata = Map.put(extra_metadata, :rendered, rendered)
-            {{:ok, rendered, extra_metadata}, stop_metadata}
+            {:ok, rendered, extra_metadata} ->
+              stop_metadata = Map.put(extra_metadata, :rendered, rendered)
+              {{:ok, rendered, extra_metadata}, stop_metadata}
 
-          {:error, reason} = error ->
-            stop_metadata = %{error: reason}
-            {error, stop_metadata}
+            {:error, reason} = error ->
+              stop_metadata = %{error: reason}
+              {error, stop_metadata}
 
-          other ->
-            stop_metadata = %{rendered: other}
-            {other, stop_metadata}
-        end
-      end)
-    else
+            other ->
+              stop_metadata = %{rendered: other}
+              {other, stop_metadata}
+          end
+        end)
+
       {:error, reason} ->
         Logger.warning("Invalid prompt metadata: #{reason}")
         fun.()
