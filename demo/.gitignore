@@ -1,0 +1,23 @@
+# Mix artifacts
+/_build/
+/deps/
+*.ez
+
+# Environment files
+/.env
+
+# Test artifacts
+/cover/
+/tmp/
+
+# Documentation
+/doc/
+
+# Editor files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Elixir crash dumps
+erl_crash.dump

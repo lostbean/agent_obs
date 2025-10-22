@@ -3,9 +3,21 @@
     "allow": [
       "Bash(mix :*)",
       "Bash(mix format)",
-      "Bash(mix precommit:*)"
+      "Bash(mix precommit:*)",
+      "mcp__chrome-devtools__:*",
+      "mcp__chrome-devtools__click",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__list_pages",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "mcp__chrome-devtools__fill",
+      "Bash(./scripts/run_demo.sh:*)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "chrome-devtools"
+  ]
 }

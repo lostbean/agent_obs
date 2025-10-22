@@ -136,6 +136,9 @@ defmodule AgentObs.Handlers.Generic do
 
     span_ctx = Tracer.start_span(span_name, %{attributes: attributes})
 
+    # IMPORTANT: Set as current span so OpenTelemetry SDK tracks and exports it
+    Tracer.set_current_span(span_ctx)
+
     span_key = span_context_key(event_type)
     Process.put(span_key, span_ctx)
 
@@ -260,7 +263,7 @@ defmodule AgentObs.Handlers.Generic do
   end
 
   defp span_context_key(event_type) do
-    :"agent_obs_span_#{event_type}"
+    :"agent_obs_generic_span_#{event_type}"
   end
 
   defp maybe_add(attrs, _key, nil), do: attrs

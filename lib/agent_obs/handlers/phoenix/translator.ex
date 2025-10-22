@@ -68,9 +68,15 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
   def from_start_metadata(:llm, metadata) do
     %{
       "openinference.span.kind" => "LLM",
-      "llm.model_name" => metadata.model
+      "llm.model_name" => metadata.model,
+      # Add gen_ai attributes for compatibility
+      "gen_ai.system" => extract_provider(metadata.model),
+      "gen_ai.request.model" => metadata.model
     }
     |> maybe_add("llm.invocation_parameters", encode_invocation_parameters(metadata))
+    |> maybe_add("ai.operationId", "ai.generateText.doGenerate")
+    |> maybe_add("ai.model.id", metadata.model)
+    |> maybe_add("ai.model.provider", extract_provider(metadata.model))
     |> Map.merge(flatten_input_messages(metadata[:input_messages]))
   end
 
@@ -121,6 +127,13 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
     |> maybe_add("llm.token_count.total", get_in(metadata, [:tokens, :total]))
     |> maybe_add("llm.cost.total", metadata[:cost])
     |> maybe_add("output.value", metadata[:finish_reason])
+    # Add gen_ai usage attributes
+    |> maybe_add("gen_ai.usage.input_tokens", get_in(metadata, [:tokens, :prompt]))
+    |> maybe_add("gen_ai.usage.output_tokens", get_in(metadata, [:tokens, :completion]))
+    |> maybe_add(
+      "gen_ai.response.finish_reasons",
+      metadata[:finish_reason] && [metadata[:finish_reason]]
+    )
     |> add_duration(measurements)
   end
 
@@ -166,9 +179,9 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
       |> Map.put("llm.input_messages.#{idx}.message.role", to_string(msg.role))
       |> maybe_add(
         "llm.input_messages.#{idx}.message.content",
-        msg[:content] && to_string(msg.content)
+        get_message_field(msg, :content) && to_string(get_message_field(msg, :content))
       )
-      |> maybe_add_tool_calls("llm.input_messages.#{idx}", msg[:tool_calls])
+      |> maybe_add_tool_calls("llm.input_messages.#{idx}", get_message_field(msg, :tool_calls))
     end)
   end
 
@@ -182,9 +195,9 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
       |> Map.put("llm.output_messages.#{idx}.message.role", to_string(msg.role))
       |> maybe_add(
         "llm.output_messages.#{idx}.message.content",
-        msg[:content] && to_string(msg.content)
+        get_message_field(msg, :content) && to_string(get_message_field(msg, :content))
       )
-      |> maybe_add_tool_calls("llm.output_messages.#{idx}", msg[:tool_calls])
+      |> maybe_add_tool_calls("llm.output_messages.#{idx}", get_message_field(msg, :tool_calls))
     end)
   end
 
@@ -196,12 +209,13 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
     |> Enum.reduce(attrs, fn {tool_call, idx}, acc ->
       tool_prefix = "#{prefix}.message.tool_calls.#{idx}.tool_call"
 
+      # Handle both map-based and struct-based tool calls
+      function_name = get_tool_call_field(tool_call, :name)
+      function_args = get_tool_call_field(tool_call, :arguments)
+
       acc
-      |> maybe_add("#{tool_prefix}.function.name", get_in(tool_call, [:function, :name]))
-      |> maybe_add(
-        "#{tool_prefix}.function.arguments",
-        get_in(tool_call, [:function, :arguments])
-      )
+      |> maybe_add("#{tool_prefix}.function.name", function_name)
+      |> maybe_add("#{tool_prefix}.function.arguments", encode_json(function_args))
     end)
   end
 
@@ -277,7 +291,65 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
     end
   end
 
+  # Helper to safely access message fields (handles both maps and structs)
+  defp get_message_field(msg, field) when is_map(msg) do
+    # Try struct field access first, then map access
+    case Map.get(msg, field) do
+      nil ->
+        nil
+
+      # Handle ContentPart list - extract text content
+      value when is_list(value) and field == :content ->
+        extract_text_content(value)
+
+      value ->
+        value
+    end
+  end
+
+  # Extract text from ContentPart structs or plain strings
+  defp extract_text_content([]), do: nil
+  defp extract_text_content(content) when is_binary(content), do: content
+
+  defp extract_text_content(content) when is_list(content) do
+    content
+    |> Enum.map(fn
+      %{type: :text, text: text} -> text
+      %{text: text} -> text
+      text when is_binary(text) -> text
+      _ -> ""
+    end)
+    |> Enum.join("\n")
+    |> case do
+      "" -> nil
+      text -> text
+    end
+  end
+
+  # Helper to safely access tool call fields (handles both maps and structs)
+  defp get_tool_call_field(tool_call, field) when is_map(tool_call) do
+    Map.get(tool_call, field)
+  end
+
   defp exception_message(%{message: message}), do: message
   defp exception_message(reason) when is_binary(reason), do: reason
   defp exception_message(reason), do: inspect(reason)
+
+  # Extract provider from model string (e.g., "anthropic:claude-3" -> "anthropic")
+  defp extract_provider(model) when is_binary(model) do
+    case String.split(model, ":", parts: 2) do
+      [provider, _model] ->
+        provider
+
+      [model] ->
+        cond do
+          String.starts_with?(model, "gpt-") -> "openai"
+          String.starts_with?(model, "claude-") -> "anthropic"
+          String.contains?(model, "gemini") -> "google"
+          true -> "unknown"
+        end
+    end
+  end
+
+  defp extract_provider(_), do: "unknown"
 end
