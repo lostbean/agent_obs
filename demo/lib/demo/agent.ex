@@ -69,9 +69,15 @@ defmodule Demo.Agent do
         new_history = Context.append(state.history, Context.user(message))
 
         case stream_and_handle_tools(model, new_history, state.tools) do
-          {:ok, final_history, final_response} ->
+          {:ok, final_history, final_response, tools_used} ->
             IO.write("\n")
-            {:ok, final_response, %{history: final_history}}
+
+            {:ok, final_response,
+             %{
+               history: final_history,
+               tools_used: tools_used,
+               iterations: if(tools_used == [], do: 1, else: 2)
+             }}
 
           {:error, error} ->
             IO.write("Error: #{inspect(error)}\n")
@@ -134,7 +140,7 @@ defmodule Demo.Agent do
     case result do
       {:ok, text, %{tool_calls: [], history: history}} ->
         final_history = Context.append(history, Context.assistant(text))
-        {:ok, final_history, text}
+        {:ok, final_history, text, []}
 
       {:ok, initial_text, %{tool_calls: tool_calls, history: history}} ->
         # Process tool calls
@@ -142,6 +148,9 @@ defmodule Demo.Agent do
         history_with_tool_call = Context.append(history, assistant_message)
 
         IO.write("\n")
+
+        # Track which tools were used
+        tools_used = Enum.map(tool_calls, & &1.name)
 
         # Execute tools and show results
         history_with_results =
@@ -152,7 +161,7 @@ defmodule Demo.Agent do
         # Second LLM call with tool results
         case stream_final_response(model, history_with_results) do
           {:ok, final_history, final_text} ->
-            {:ok, final_history, final_text}
+            {:ok, final_history, final_text, tools_used}
 
           {:error, error} ->
             {:error, error}

@@ -11,7 +11,9 @@
       "mcp__chrome-devtools__list_pages",
       "WebFetch(domain:raw.githubusercontent.com)",
       "mcp__chrome-devtools__fill",
-      "Bash(./scripts/run_demo.sh:*)"
+      "Bash(./scripts/run_demo.sh:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:opentelemetry.io)"
     ],
     "deny": [],
     "ask": []

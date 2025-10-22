@@ -115,8 +115,27 @@ defmodule AgentObs do
               stop_metadata = Map.put(extra_metadata, :output, output)
               {{:ok, output, extra_metadata}, stop_metadata}
 
+            {:error, %{exception: exception, stacktrace: stacktrace}} = error ->
+              stop_metadata = %{
+                error: Exception.message(exception),
+                exception: exception,
+                stacktrace: stacktrace
+              }
+
+              {error, stop_metadata}
+
+            {:error, %{kind: kind, reason: reason, stacktrace: stacktrace}} = error ->
+              stop_metadata = %{
+                error: inspect(reason),
+                kind: kind,
+                reason: reason,
+                stacktrace: stacktrace
+              }
+
+              {error, stop_metadata}
+
             {:error, reason} = error ->
-              stop_metadata = %{error: reason}
+              stop_metadata = %{error: format_error_reason(reason)}
               {error, stop_metadata}
 
             other ->
@@ -173,8 +192,27 @@ defmodule AgentObs do
               stop_metadata = Map.put(extra_metadata, :result, result)
               {{:ok, result, extra_metadata}, stop_metadata}
 
+            {:error, %{exception: exception, stacktrace: stacktrace}} = error ->
+              stop_metadata = %{
+                error: Exception.message(exception),
+                exception: exception,
+                stacktrace: stacktrace
+              }
+
+              {error, stop_metadata}
+
+            {:error, %{kind: kind, reason: reason, stacktrace: stacktrace}} = error ->
+              stop_metadata = %{
+                error: inspect(reason),
+                kind: kind,
+                reason: reason,
+                stacktrace: stacktrace
+              }
+
+              {error, stop_metadata}
+
             {:error, reason} = error ->
-              stop_metadata = %{error: reason}
+              stop_metadata = %{error: format_error_reason(reason)}
               {error, stop_metadata}
 
             other ->
@@ -236,8 +274,27 @@ defmodule AgentObs do
               normalized_stop = Events.normalize_metadata(:llm, :stop, stop_metadata)
               {{:ok, response, stop_metadata}, normalized_stop}
 
+            {:error, %{exception: exception, stacktrace: stacktrace}} = error ->
+              stop_metadata = %{
+                error: Exception.message(exception),
+                exception: exception,
+                stacktrace: stacktrace
+              }
+
+              {error, stop_metadata}
+
+            {:error, %{kind: kind, reason: reason, stacktrace: stacktrace}} = error ->
+              stop_metadata = %{
+                error: inspect(reason),
+                kind: kind,
+                reason: reason,
+                stacktrace: stacktrace
+              }
+
+              {error, stop_metadata}
+
             {:error, reason} = error ->
-              stop_metadata = %{error: reason}
+              stop_metadata = %{error: format_error_reason(reason)}
               {error, stop_metadata}
 
             other ->
@@ -293,8 +350,27 @@ defmodule AgentObs do
               stop_metadata = Map.put(extra_metadata, :rendered, rendered)
               {{:ok, rendered, extra_metadata}, stop_metadata}
 
+            {:error, %{exception: exception, stacktrace: stacktrace}} = error ->
+              stop_metadata = %{
+                error: Exception.message(exception),
+                exception: exception,
+                stacktrace: stacktrace
+              }
+
+              {error, stop_metadata}
+
+            {:error, %{kind: kind, reason: reason, stacktrace: stacktrace}} = error ->
+              stop_metadata = %{
+                error: inspect(reason),
+                kind: kind,
+                reason: reason,
+                stacktrace: stacktrace
+              }
+
+              {error, stop_metadata}
+
             {:error, reason} = error ->
-              stop_metadata = %{error: reason}
+              stop_metadata = %{error: format_error_reason(reason)}
               {error, stop_metadata}
 
             other ->
@@ -376,10 +452,26 @@ defmodule AgentObs do
     Application.get_env(:agent_obs, :event_prefix, [:agent_obs])
   end
 
+  defp format_error_reason(reason) when is_binary(reason), do: reason
+  defp format_error_reason(%{message: msg}), do: msg
+
+  defp format_error_reason(reason) when is_exception(reason) do
+    Exception.message(reason)
+  end
+
+  defp format_error_reason(reason), do: inspect(reason)
+
   defp safe_execute(fun) do
     fun.()
   rescue
     exception ->
-      {:error, exception}
+      # Capture full exception details for proper observability
+      stacktrace = __STACKTRACE__
+      {:error, %{exception: exception, stacktrace: stacktrace}}
+  catch
+    kind, reason ->
+      # Capture throws and exits as well
+      stacktrace = __STACKTRACE__
+      {:error, %{kind: kind, reason: reason, stacktrace: stacktrace}}
   end
 end

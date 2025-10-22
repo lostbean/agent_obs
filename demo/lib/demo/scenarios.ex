@@ -124,12 +124,47 @@ defmodule Demo.Scenarios do
   end
 
   @doc """
+  Error handling demo - showcases proper error capture and observability.
+  """
+  def error_handling_demo do
+    IO.puts("\n❌ Scenario 4: Error Handling Demo")
+    IO.puts("-" <> String.duplicate("-", 50))
+
+    {:ok, agent} = Demo.Agent.start_link()
+
+    questions = [
+      "Calculate 100 divided by 0",
+      # This should trigger division by zero error
+      "Calculate the square root of -16"
+      # This should trigger negative sqrt error
+    ]
+
+    Enum.each(questions, fn question ->
+      IO.puts("\n💬 User: #{question}")
+      IO.write("🤖 Agent: ")
+
+      case Demo.Agent.prompt(agent, question) do
+        {:ok, _response} ->
+          IO.puts(" ✓")
+
+        {:error, error} ->
+          IO.puts("\n❌ Error (expected): #{inspect(error)}")
+      end
+
+      Process.sleep(1000)
+    end)
+
+    GenServer.stop(agent)
+  end
+
+  @doc """
   Run all demo scenarios sequentially.
   """
   def run_all do
     calculator_demo()
     weather_demo()
     multi_step_demo()
+    error_handling_demo()
 
     IO.puts("\n" <> String.duplicate("=", 52))
     IO.puts("✅ All scenarios completed!")

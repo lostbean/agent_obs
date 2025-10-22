@@ -189,6 +189,19 @@ defmodule AgentObs.Handlers.Phoenix do
             # Set attributes on the current span
             Tracer.set_attributes(attributes)
 
+            # Set span status based on whether operation succeeded or failed
+            # According to OpenTelemetry spec, status should be Ok for successful operations
+            # and Error for failures. Check for :error key in metadata.
+            cond do
+              Map.has_key?(metadata, :error) ->
+                error_msg = format_error_message(metadata[:error])
+                Tracer.set_status(OpenTelemetry.status(:error, error_msg))
+
+              true ->
+                # Successful completion - set status to Ok
+                Tracer.set_status(OpenTelemetry.status(:ok))
+            end
+
             # End the span
             Tracer.end_span()
 
@@ -221,17 +234,22 @@ defmodule AgentObs.Handlers.Phoenix do
         # Extract span_ctx and parent_ctx from stored tuple
         case stored_value do
           {_span_ctx, parent_ctx} ->
+            # Get OpenInference-compatible exception attributes
             attributes = Translator.from_exception_metadata(event_type, metadata, measurements)
-
             Tracer.set_attributes(attributes)
 
-            # Record the exception details
+            # Extract exception details with proper defaults
             kind = metadata[:kind] || :error
             reason = metadata[:reason] || "Unknown error"
             stacktrace = metadata[:stacktrace] || []
 
+            # Record the exception in OpenTelemetry format
             Tracer.record_exception(kind, reason, stacktrace)
-            Tracer.set_status(OpenTelemetry.status(:error, "Exception occurred"))
+
+            # Set error status with descriptive message
+            error_message = format_exception_message(kind, reason)
+            Tracer.set_status(OpenTelemetry.status(:error, error_message))
+
             Tracer.end_span()
 
             # Restore parent context
@@ -268,5 +286,30 @@ defmodule AgentObs.Handlers.Phoenix do
 
   defp span_context_key(event_type) do
     :"agent_obs_phoenix_span_#{event_type}"
+  end
+
+  defp format_error_message(error) when is_binary(error), do: error
+  defp format_error_message(%{message: msg}), do: msg
+
+  defp format_error_message(error) when is_exception(error) do
+    Exception.message(error)
+  end
+
+  defp format_error_message(error), do: inspect(error)
+
+  defp format_exception_message(kind, %{message: msg}) do
+    "#{kind}: #{msg}"
+  end
+
+  defp format_exception_message(kind, reason) when is_exception(reason) do
+    "#{kind}: #{Exception.message(reason)}"
+  end
+
+  defp format_exception_message(kind, reason) when is_binary(reason) do
+    "#{kind}: #{reason}"
+  end
+
+  defp format_exception_message(kind, reason) do
+    "#{kind}: #{inspect(reason)}"
   end
 end

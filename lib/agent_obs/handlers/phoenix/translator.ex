@@ -50,9 +50,12 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
   def from_start_metadata(:agent, metadata) do
     %{
       "openinference.span.kind" => "AGENT",
-      "input.value" => to_json_safe(metadata.input)
+      "input.value" => to_json_safe(metadata.input),
+      "input.mime_type" => "text/plain"
     }
     |> maybe_add("llm.model_name", metadata[:model])
+    |> maybe_add("session.id", metadata[:session_id])
+    |> maybe_add("user.id", metadata[:user_id])
     |> maybe_add_metadata(metadata[:metadata])
   end
 
@@ -105,10 +108,15 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
   @spec from_stop_metadata(atom(), map(), map()) :: map()
   def from_stop_metadata(:agent, metadata, measurements) do
     %{
-      "output.value" => to_json_safe(metadata[:output])
+      "output.value" => to_json_safe(metadata[:output]),
+      "output.mime_type" => "text/plain"
     }
-    |> maybe_add("agent.tools_used", encode_json(metadata[:tools_used]))
+    |> add_tools_used(metadata[:tools_used])
     |> maybe_add("agent.iterations", metadata[:iterations])
+    |> maybe_add("llm.token_count.total", get_in(metadata, [:tokens, :total]))
+    |> maybe_add("llm.token_count.prompt", get_in(metadata, [:tokens, :prompt]))
+    |> maybe_add("llm.token_count.completion", get_in(metadata, [:tokens, :completion]))
+    |> maybe_add("llm.cost.total", metadata[:cost])
     |> add_duration(measurements)
   end
 
@@ -159,11 +167,16 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
   """
   @spec from_exception_metadata(atom(), map(), map()) :: map()
   def from_exception_metadata(_event_type, metadata, measurements) do
+    kind = metadata[:kind] || :error
+    reason = metadata[:reason]
+    stacktrace = metadata[:stacktrace] || []
+
     %{
-      "exception.type" => to_string(metadata[:kind] || :error),
-      "exception.message" => exception_message(metadata[:reason]),
+      "exception.type" => exception_type(kind, reason),
+      "exception.message" => exception_message(reason),
       "exception.escaped" => false
     }
+    |> maybe_add("exception.stacktrace", format_stacktrace(stacktrace))
     |> add_duration(measurements)
   end
 
@@ -228,6 +241,20 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
   defp add_tool_arguments(attrs, arguments) when is_binary(arguments) do
     Map.put(attrs, "tool.parameters", arguments)
   end
+
+  # Helper to add tools_used as a proper array (not JSON string)
+  defp add_tools_used(attrs, nil), do: attrs
+
+  defp add_tools_used(attrs, tools) when is_list(tools) do
+    # Add each tool with an index for proper OpenInference format
+    tools
+    |> Enum.with_index()
+    |> Enum.reduce(attrs, fn {tool, idx}, acc ->
+      Map.put(acc, "agent.tools_used.#{idx}", to_string(tool))
+    end)
+  end
+
+  defp add_tools_used(attrs, _), do: attrs
 
   defp encode_invocation_parameters(metadata) do
     params =
@@ -341,9 +368,41 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
     end
   end
 
+  defp exception_type(_kind, reason) when is_exception(reason) do
+    reason.__struct__ |> Module.split() |> List.last()
+  end
+
+  defp exception_type(kind, _reason), do: to_string(kind)
+
   defp exception_message(%{message: message}), do: message
+
+  defp exception_message(reason) when is_exception(reason) do
+    Exception.message(reason)
+  end
+
   defp exception_message(reason) when is_binary(reason), do: reason
   defp exception_message(reason), do: inspect(reason)
+
+  defp format_stacktrace([]), do: nil
+
+  defp format_stacktrace(stacktrace) when is_list(stacktrace) do
+    stacktrace
+    |> Enum.map(fn
+      {module, function, arity, location} ->
+        file = Keyword.get(location, :file, "unknown")
+        line = Keyword.get(location, :line, 0)
+        "#{module}.#{function}/#{arity} (#{file}:#{line})"
+
+      {module, function, arity} ->
+        "#{module}.#{function}/#{arity}"
+
+      other ->
+        inspect(other)
+    end)
+    |> Enum.join("\n")
+  end
+
+  defp format_stacktrace(_), do: nil
 
   # Extract provider from model string (e.g., "anthropic:claude-3" -> "anthropic")
   defp extract_provider(model) when is_binary(model) do
