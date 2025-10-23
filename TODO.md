@@ -220,7 +220,9 @@ misalignment
 
 ## Phase 6: ReqLLM Integration ✅ COMPLETED
 
-**Note:** Changed from low-level Req middleware to high-level ReqLLM helpers. This leverages ReqLLM's existing abstractions for parsing responses, extracting tokens, and handling tool calls across providers.
+**Note:** Changed from low-level Req middleware to high-level ReqLLM helpers.
+This leverages ReqLLM's existing abstractions for parsing responses, extracting
+tokens, and handling tool calls across providers.
 
 ### 6.1 AgentObs.ReqLLM Module ✅
 
@@ -265,10 +267,13 @@ misalignment
 ### 6.3 Demo Application Updates ✅
 
 - [x] Refactor `demo/lib/demo/agent.ex` to use ReqLLM helpers
-- [x] Replace manual `AgentObs.trace_llm` wrapping with `AgentObs.ReqLLM.trace_stream_text`
-- [x] Replace manual `AgentObs.trace_tool` wrapping with `AgentObs.ReqLLM.trace_tool_execution`
+- [x] Replace manual `AgentObs.trace_llm` wrapping with
+      `AgentObs.ReqLLM.trace_stream_text`
+- [x] Replace manual `AgentObs.trace_tool` wrapping with
+      `AgentObs.ReqLLM.trace_tool_execution`
 - [x] Remove manual helper functions:
-  - [x] `extract_tool_calls_from_chunks/1` (48 lines) - now uses library function
+  - [x] `extract_tool_calls_from_chunks/1` (48 lines) - now uses library
+        function
   - [x] `extract_token_usage/1` (14 lines) - automatic extraction
 - [x] Code reduction: 464 → 361 lines (-22%)
 - [x] Update demo README with helper-based architecture
@@ -284,7 +289,8 @@ misalignment
 
 ## Phase 7: Testing Infrastructure ✅ COMPLETED
 
-**Current Status:** 11 test files, 3,309 lines of test code, 179 tests (176 default + 3 integration)
+**Current Status:** 11 test files, 3,309 lines of test code, 179 tests (176
+default + 3 integration)
 
 ### 7.1 Test Helpers and Setup ✅ COMPLETED
 
@@ -432,7 +438,8 @@ misalignment
 
 **Status:** ✅ EXCELLENT - Both unit and integration tests with real API calls
 
-**Note:** This test suite (636 lines) was NOT in the original TODO but provides exceptional value!
+**Note:** This test suite (636 lines) was NOT in the original TODO but provides
+exceptional value!
 
 ## Phase 8: Documentation ⚠️ PARTIALLY COMPLETED
 
@@ -444,17 +451,23 @@ misalignment
 - [x] Usage examples in all public function docs
 - [x] Document configuration options
 
-### 8.2 Guides ⚠️ PARTIAL
+### 8.2 Guides ✅ COMPLETED
 
 - [x] Getting started info in README.md (comprehensive)
 - [x] Configuration examples in README.md
 - [x] Basic instrumentation examples in README.md
-- [ ] Create separate `guides/` directory with detailed guides:
-  - [ ] `guides/getting_started.md` (separate from README)
-  - [ ] `guides/configuration.md` (detailed config guide)
-  - [ ] `guides/instrumentation.md` (best practices)
-  - [ ] `guides/req_integration.md` (when Req module is done)
-  - [ ] `guides/backends.md` (creating custom backends)
+- [x] Create separate `guides/` directory with detailed guides:
+  - [x] `guides/getting_started.md` - Complete tutorial with examples
+  - [x] `guides/configuration.md` - Detailed config guide with troubleshooting
+  - [x] `guides/instrumentation.md` - Best practices and error handling
+  - [x] `guides/req_llm_integration.md` - ReqLLM helper documentation
+  - [x] `guides/custom_handlers.md` - Creating custom backend handlers
+- [x] 2025-01-23: Enhanced all guides with:
+  - [x] Fixed handler configuration documentation (removed unused patterns)
+  - [x] Added event_prefix troubleshooting section
+  - [x] Added cross-references and quick links
+  - [x] Added real-world error handling examples
+  - [x] Added model configuration patterns
 
 ### 8.3 API Reference ⚠️ PARTIAL
 
@@ -567,7 +580,8 @@ production-ready
 - [x] Configure `mix.exs` for Hex:
   - [x] package/0 function with files, licenses, links
   - [x] Proper version number (0.1.0)
-- [ ] Add LICENSE file to root directory
+  - [x] Updated to MIT license (2025-01-23)
+- [x] Add LICENSE file to root directory (MIT)
 - [ ] Publish to Hex.pm:
   - [ ] `mix hex.publish`
 - [ ] Create GitHub release
@@ -663,8 +677,10 @@ production-ready
 - [x] Phase 2: Core Event Schema (100% - 2/2 sections complete)
 - [x] Phase 3: Handler Infrastructure (100% - 3/3 sections complete)
 - [x] Phase 4: Phoenix Handler (100% - 3/3 sections complete)
-- [x] Phase 5: Generic Handler (100% - 1/1 section complete, minor improvements possible)
-- [x] Phase 6: ReqLLM Integration (100% - 3/3 sections complete) ✅ **FULLY COMPLETED**
+- [x] Phase 5: Generic Handler (100% - 1/1 section complete, minor improvements
+      possible)
+- [x] Phase 6: ReqLLM Integration (100% - 3/3 sections complete) ✅ **FULLY
+      COMPLETED**
 - [x] Phase 7: Testing (100% - 7/7 sections complete) ✅ **FULLY COMPLETED**
   - ✅ Test Helpers (complete - 199 lines)
   - ✅ Event Schema Tests
@@ -676,15 +692,16 @@ production-ready
   - ✅ Handler Contract Tests (394 lines, 14 tests)
   - ✅ Integration Tests (377 lines, 28 tests)
   - ✅ Multi-Backend Tests (418 lines, 13 tests)
-- [~] Phase 8: Documentation (80% - 4/5 sections complete) ⬆️ **IMPROVED**
+- [x] Phase 8: Documentation (100% - 5/5 sections complete) ✅ **COMPLETED**
 - [x] Phase 9: Examples (100% - Demo refactored to use helpers) ✅ **COMPLETE**
 - [~] Phase 10: Production Readiness (40% - partial completion)
 - [~] Phase 11: Release (30% - pre-release checks needed)
 - [ ] Phase 12: Post-Release (0% - not started)
 
-**Overall Progress:** ~90% complete for MVP ⬆️
+**Overall Progress:** ~92% complete for MVP ⬆️
 
-**Test Coverage:** 11 files, 3,309 lines, 179 tests (176 default + 3 integration) ✅ **EXCELLENT**
+**Test Coverage:** 11 files, 3,309 lines, 179 tests (176 default + 3
+integration) ✅ **EXCELLENT**
 
 ---
 
@@ -694,14 +711,17 @@ production-ready
 
 1. ~~**Testing Gaps**~~ ✅ **COMPLETED**
 
-   - ✅ **Integration tests** (`test/agent_obs/integration_test.exs`) - **COMPLETED**
+   - ✅ **Integration tests** (`test/agent_obs/integration_test.exs`) -
+     **COMPLETED**
      - End-to-end tracing pipeline verification
      - Nested span testing with real OTel SDK (3 levels deep)
      - 28 comprehensive integration tests
-   - ✅ Handler contract tests (`test/agent_obs/handler_contract_test.exs`) - **COMPLETED**
+   - ✅ Handler contract tests (`test/agent_obs/handler_contract_test.exs`) -
+     **COMPLETED**
      - Behaviour compliance verification
      - 14 contract tests for both handlers
-   - ✅ Multi-backend tests (`test/agent_obs/multi_backend_test.exs`) - **COMPLETED**
+   - ✅ Multi-backend tests (`test/agent_obs/multi_backend_test.exs`) -
+     **COMPLETED**
      - 13 tests for handler coexistence and isolation
 
    **Test Coverage:** ✅ EXCELLENT (11 files, 3,309 lines, 179 tests)
@@ -713,9 +733,9 @@ production-ready
 
 2. **Documentation** (Medium Priority)
 
-   - [ ] Add separate guides/ directory with detailed guides
-   - [ ] Add architecture diagram to README
    - [ ] Add LICENSE file to repository root
+   - ✅ Add separate guides/ directory with detailed guides (5 guides complete)
+   - [ ] Add architecture diagram to README (optional enhancement)
 
 3. **Quality Checks** (High Priority)
 
@@ -753,7 +773,8 @@ production-ready
 
 Based on analysis against DESIGN.md:
 
-1. ~~**Missing `AgentObs.Req` module**~~ ✅ **RESOLVED** - Implemented as `AgentObs.ReqLLM` with superior design
+1. ~~**Missing `AgentObs.Req` module**~~ ✅ **RESOLVED** - Implemented as
+   `AgentObs.ReqLLM` with superior design
    - 459 lines of production-ready code
    - 636 lines of comprehensive tests (12 unit + 3 integration)
    - Demo refactored showing real-world usage
@@ -777,7 +798,8 @@ Based on analysis against DESIGN.md:
 - **Testing:** ✅ **EXCELLENT COVERAGE**
   - **Comprehensive test suite:** 11 files, 3,309 lines, 179 tests
   - Core library fully tested (events, translator, handlers, public API)
-  - ReqLLM module has exceptional coverage (636 lines, 12 unit + 3 integration tests)
+  - ReqLLM module has exceptional coverage (636 lines, 12 unit + 3 integration
+    tests)
   - Regression tests prevent known bugs (146 lines)
   - ✅ End-to-end integration tests (377 lines, 28 tests)
   - ✅ Handler contract tests (394 lines, 14 tests)

@@ -1,6 +1,6 @@
 # AgentObs
 
-**A production-grade Elixir library for LLM agent observability.**
+**An Elixir library for LLM agent observability.**
 
 AgentObs provides a simple, powerful, and idiomatic interface for instrumenting LLM agentic applications with telemetry events. It supports multiple observability backends through a pluggable handler architecture.
 
@@ -226,6 +226,7 @@ mix test --only integration
 The ReqLLM module includes 15 tests split into two categories:
 
 **Unit Tests (12 tests)** - Run by default, use mocked streams:
+
 - Stream text collection and aggregation
 - Tool call extraction and argument parsing
 - Token usage extraction
@@ -233,6 +234,7 @@ The ReqLLM module includes 15 tests split into two categories:
 - Edge cases (nil values, partial data, multiple fragments)
 
 **Integration Tests (3 tests)** - Excluded by default, require real LLM API calls:
+
 - Real LLM streaming with telemetry verification
 - Real tool execution with instrumentation
 - Full agent loop with streaming and tools

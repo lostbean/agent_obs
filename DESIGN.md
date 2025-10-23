@@ -1,4 +1,4 @@
-# **Building AgentObs: A Production-Grade Elixir Library for LLM Agent Observability**
+# **Building AgentObs: An Elixir Library for LLM Agent Observability**
 
 ## **I. Introduction: A New Frontier for Observability in Elixir LLM Agents**
 

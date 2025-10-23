@@ -53,7 +53,7 @@ defmodule AgentObs.MixProject do
 
   defp description do
     """
-    A production-grade Elixir library for LLM agent observability.
+    An Elixir library for LLM agent observability.
     Provides instrumentation for agent loops, tool calls, and LLM requests
     with support for OpenTelemetry and OpenInference semantic conventions.
     """
@@ -74,15 +74,63 @@ defmodule AgentObs.MixProject do
 
   defp docs do
     [
-      main: "AgentObs",
+      main: "readme",
+      name: "AgentObs",
       source_url: @source_url,
       source_ref: "v#{@version}",
+      homepage_url: @source_url,
+      formatters: ["html"],
       extras: [
         "README.md",
-        "CHANGELOG.md"
-      ]
+        "CHANGELOG.md",
+        "guides/getting_started.md",
+        "guides/configuration.md",
+        "guides/instrumentation.md",
+        "guides/req_llm_integration.md",
+        "guides/custom_handlers.md"
+      ],
+      groups_for_extras: [
+        Guides: [
+          "guides/getting_started.md",
+          "guides/configuration.md",
+          "guides/instrumentation.md",
+          "guides/req_llm_integration.md",
+          "guides/custom_handlers.md"
+        ]
+      ],
+      groups_for_modules: [
+        "Core API": [
+          AgentObs,
+          AgentObs.Events
+        ],
+        Handlers: [
+          AgentObs.Handler,
+          AgentObs.Handlers.Phoenix,
+          AgentObs.Handlers.Generic,
+          AgentObs.Handlers.Phoenix.Translator
+        ],
+        Integrations: [
+          AgentObs.ReqLLM
+        ],
+        Infrastructure: [
+          AgentObs.Application,
+          AgentObs.Supervisor
+        ]
+      ],
+      before_closing_body_tag: &before_closing_body_tag/1
     ]
   end
+
+  # Add analytics or custom scripts if needed
+  defp before_closing_body_tag(:html) do
+    """
+    <script>
+      // Add any custom JavaScript for documentation here
+    </script>
+    """
+  end
+
+  defp before_closing_body_tag(_), do: ""
 
   defp aliases do
     [

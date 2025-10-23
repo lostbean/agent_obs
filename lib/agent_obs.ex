@@ -1,6 +1,6 @@
 defmodule AgentObs do
   @moduledoc """
-  A production-grade Elixir library for LLM agent observability.
+  An Elixir library for LLM agent observability.
 
   AgentObs provides a simple, powerful, and idiomatic interface for instrumenting
   LLM agentic applications with telemetry events. It supports multiple observability
