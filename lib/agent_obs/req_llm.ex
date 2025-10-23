@@ -18,13 +18,47 @@ defmodule AgentObs.ReqLLM do
 
   ## Features
 
-  - Automatic LLM call instrumentation with `trace_stream_text/3`
+  - Automatic LLM call instrumentation:
+    - `trace_generate_text/3` - Non-streaming text generation
+    - `trace_generate_text!/3` - Non-streaming text generation (bang variant)
+    - `trace_stream_text/3` - Streaming text generation
+    - `trace_generate_object/4` - Non-streaming structured data generation
+    - `trace_generate_object!/4` - Non-streaming structured data (bang variant)
+    - `trace_stream_object/4` - Streaming structured data generation
   - Automatic tool execution instrumentation with `trace_tool_execution/3`
-  - Token usage extraction from StreamResponse
+  - Token usage extraction from all response types
   - Tool call parsing and extraction
-  - Seamless integration with ReqLLM's streaming API
+  - Seamless integration with ReqLLM's API
 
   ## Usage
+
+  ### Non-Streaming Text Generation
+
+      {:ok, response} =
+        AgentObs.ReqLLM.trace_generate_text(
+          "anthropic:claude-3-5-sonnet",
+          [%{role: "user", content: "Hello!"}]
+        )
+
+      text = ReqLLM.Response.text(response)
+      usage = ReqLLM.Response.usage(response)
+
+  ### Non-Streaming Structured Data Generation
+
+      schema = [
+        name: [type: :string, required: true],
+        age: [type: :pos_integer, required: true]
+      ]
+
+      {:ok, response} =
+        AgentObs.ReqLLM.trace_generate_object(
+          "anthropic:claude-3-5-sonnet",
+          [%{role: "user", content: "Generate a person"}],
+          schema
+        )
+
+      object = ReqLLM.Response.object(response)
+      #=> %{name: "John Doe", age: 30}
 
   ### Basic Streaming with Instrumentation
 
@@ -143,6 +177,275 @@ defmodule AgentObs.ReqLLM do
   """
 
   @doc """
+  Wraps `ReqLLM.generate_text/3` with automatic AgentObs instrumentation.
+
+  Instruments the LLM text generation call and automatically extracts token usage,
+  output messages, and other metadata for observability. This is the non-streaming
+  version that returns a complete response.
+
+  ## Parameters
+
+  - `model` - Model specification (string like "anthropic:claude-3-5-sonnet" or Model struct)
+  - `messages` - List of message maps or Context
+  - `opts` - Options passed to `ReqLLM.generate_text/3` (tools, temperature, etc.)
+
+  ## Returns
+
+  - `{:ok, response}` - ReqLLM.Response with full metadata
+  - `{:error, reason}` - Error from ReqLLM
+
+  ## Examples
+
+      # Basic usage
+      {:ok, response} = AgentObs.ReqLLM.trace_generate_text(
+        "anthropic:claude-3-5-sonnet",
+        [%{role: "user", content: "Hello!"}]
+      )
+
+      # Extract text from response
+      text = ReqLLM.Response.text(response)
+
+      # Access usage metadata
+      usage = ReqLLM.Response.usage(response)
+
+  ## Telemetry
+
+  This function emits standard AgentObs LLM events:
+  - `[:agent_obs, :llm, :start]` - When generation begins
+  - `[:agent_obs, :llm, :stop]` - When generation completes (with tokens)
+  - `[:agent_obs, :llm, :exception]` - If an error occurs
+  """
+  @spec trace_generate_text(term(), list() | struct(), keyword()) ::
+          {:ok, struct()} | {:error, term()}
+  def trace_generate_text(model, messages, opts \\ []) do
+    model_string = normalize_model_string(model)
+    messages_list = normalize_messages(messages)
+
+    result =
+      AgentObs.trace_llm(model_string, %{input_messages: messages_list, type: "chat"}, fn ->
+        case ReqLLM.generate_text(model, messages, opts) do
+          {:ok, response} ->
+            # Extract metadata from response
+            text = ReqLLM.Response.text(response)
+            usage = ReqLLM.Response.usage(response)
+
+            tokens = %{
+              prompt: Map.get(usage, :input_tokens, 0) || 0,
+              completion: Map.get(usage, :output_tokens, 0) || 0,
+              total:
+                (Map.get(usage, :input_tokens, 0) || 0) + (Map.get(usage, :output_tokens, 0) || 0)
+            }
+
+            output_messages = [%{role: "assistant", content: text}]
+
+            {:ok, response,
+             %{
+               output_messages: output_messages,
+               tokens: tokens,
+               finish_reason: Map.get(response, :finish_reason)
+             }}
+
+          {:error, error} ->
+            {:error, error}
+        end
+      end)
+
+    case result do
+      {:ok, response, _metadata} ->
+        {:ok, response}
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+  @doc """
+  Wraps `ReqLLM.generate_text!/3` with automatic AgentObs instrumentation.
+
+  Like `trace_generate_text/3` but raises on error and returns only the text content.
+  This is a convenience function for simple use cases where you only need the text.
+
+  ## Parameters
+
+  - `model` - Model specification (string like "anthropic:claude-3-5-sonnet" or Model struct)
+  - `messages` - List of message maps or Context
+  - `opts` - Options passed to `ReqLLM.generate_text!/3` (tools, temperature, etc.)
+
+  ## Returns
+
+  - Text string from the LLM response
+  - Raises on error
+
+  ## Examples
+
+      text = AgentObs.ReqLLM.trace_generate_text!(
+        "anthropic:claude-3-5-sonnet",
+        [%{role: "user", content: "Hello!"}]
+      )
+      #=> "Hello! How can I assist you today?"
+
+  ## Telemetry
+
+  This function emits standard AgentObs LLM events:
+  - `[:agent_obs, :llm, :start]` - When generation begins
+  - `[:agent_obs, :llm, :stop]` - When generation completes (with tokens)
+  - `[:agent_obs, :llm, :exception]` - If an error occurs
+  """
+  @spec trace_generate_text!(term(), list() | struct(), keyword()) :: String.t()
+  def trace_generate_text!(model, messages, opts \\ []) do
+    case trace_generate_text(model, messages, opts) do
+      {:ok, response} ->
+        ReqLLM.Response.text(response)
+
+      {:error, error} ->
+        raise "ReqLLM.generate_text! failed: #{inspect(error)}"
+    end
+  end
+
+  @doc """
+  Wraps `ReqLLM.generate_object/4` with automatic AgentObs instrumentation.
+
+  Instruments structured data generation with schema validation and automatically
+  extracts token usage, output object, and other metadata for observability.
+
+  ## Parameters
+
+  - `model` - Model specification (string like "anthropic:claude-3-5-sonnet" or Model struct)
+  - `messages` - List of message maps or Context
+  - `schema` - Schema definition for structured output (keyword list or map)
+  - `opts` - Options passed to `ReqLLM.generate_object/4` (output, mode, etc.)
+
+  ## Returns
+
+  - `{:ok, response}` - ReqLLM.Response with full metadata and structured object
+  - `{:error, reason}` - Error from ReqLLM
+
+  ## Examples
+
+      # Basic usage
+      schema = [
+        name: [type: :string, required: true],
+        age: [type: :pos_integer, required: true]
+      ]
+
+      {:ok, response} = AgentObs.ReqLLM.trace_generate_object(
+        "anthropic:claude-3-5-sonnet",
+        [%{role: "user", content: "Generate a person named Alice, age 30"}],
+        schema
+      )
+
+      # Extract object from response
+      object = ReqLLM.Response.object(response)
+      #=> %{name: "Alice", age: 30}
+
+  ## Telemetry
+
+  This function emits standard AgentObs LLM events:
+  - `[:agent_obs, :llm, :start]` - When generation begins
+  - `[:agent_obs, :llm, :stop]` - When generation completes (with tokens and object)
+  - `[:agent_obs, :llm, :exception]` - If an error occurs
+  """
+  @spec trace_generate_object(term(), list() | struct(), keyword() | map(), keyword()) ::
+          {:ok, struct()} | {:error, term()}
+  def trace_generate_object(model, messages, schema, opts \\ []) do
+    model_string = normalize_model_string(model)
+    messages_list = normalize_messages(messages)
+
+    result =
+      AgentObs.trace_llm(
+        model_string,
+        %{input_messages: messages_list, type: "chat", schema: schema},
+        fn ->
+          case ReqLLM.generate_object(model, messages, schema, opts) do
+            {:ok, response} ->
+              # Extract metadata from response
+              object = ReqLLM.Response.object(response)
+              usage = ReqLLM.Response.usage(response)
+
+              tokens = %{
+                prompt: Map.get(usage, :input_tokens, 0) || 0,
+                completion: Map.get(usage, :output_tokens, 0) || 0,
+                total:
+                  (Map.get(usage, :input_tokens, 0) || 0) +
+                    (Map.get(usage, :output_tokens, 0) || 0)
+              }
+
+              output_messages = [%{role: "assistant", content: object}]
+
+              {:ok, response,
+               %{
+                 output_messages: output_messages,
+                 tokens: tokens,
+                 object: object,
+                 finish_reason: Map.get(response, :finish_reason)
+               }}
+
+            {:error, error} ->
+              {:error, error}
+          end
+        end
+      )
+
+    case result do
+      {:ok, response, _metadata} ->
+        {:ok, response}
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+  @doc """
+  Wraps `ReqLLM.generate_object!/4` with automatic AgentObs instrumentation.
+
+  Like `trace_generate_object/4` but raises on error and returns only the object.
+  This is a convenience function for simple use cases where you only need the object.
+
+  ## Parameters
+
+  - `model` - Model specification (string like "anthropic:claude-3-5-sonnet" or Model struct)
+  - `messages` - List of message maps or Context
+  - `schema` - Schema definition for structured output (keyword list or map)
+  - `opts` - Options passed to `ReqLLM.generate_object!/4` (output, mode, etc.)
+
+  ## Returns
+
+  - Structured object matching the schema
+  - Raises on error
+
+  ## Examples
+
+      schema = [
+        name: [type: :string, required: true],
+        age: [type: :pos_integer, required: true]
+      ]
+
+      object = AgentObs.ReqLLM.trace_generate_object!(
+        "anthropic:claude-3-5-sonnet",
+        [%{role: "user", content: "Generate a person"}],
+        schema
+      )
+      #=> %{name: "John Doe", age: 30}
+
+  ## Telemetry
+
+  This function emits standard AgentObs LLM events:
+  - `[:agent_obs, :llm, :start]` - When generation begins
+  - `[:agent_obs, :llm, :stop]` - When generation completes (with tokens and object)
+  - `[:agent_obs, :llm, :exception]` - If an error occurs
+  """
+  @spec trace_generate_object!(term(), list() | struct(), keyword() | map(), keyword()) :: map()
+  def trace_generate_object!(model, messages, schema, opts \\ []) do
+    case trace_generate_object(model, messages, schema, opts) do
+      {:ok, response} ->
+        ReqLLM.Response.object(response)
+
+      {:error, error} ->
+        raise "ReqLLM.generate_object! failed: #{inspect(error)}"
+    end
+  end
+
+  @doc """
   Wraps `ReqLLM.stream_text/3` with automatic AgentObs instrumentation.
 
   Instruments the LLM streaming call and automatically extracts token usage,
@@ -220,8 +523,16 @@ defmodule AgentObs.ReqLLM do
                 [%{role: "assistant", content: text_content}]
               end
 
-            # Return stream_response with replayed stream
-            stream_response_with_replay = %{stream_response | stream: replay_stream}
+            # Create a new metadata task that returns the already-collected metadata
+            # This allows collect_stream to work on the returned stream_response
+            new_metadata_task = Task.async(fn -> metadata end)
+
+            # Return stream_response with replayed stream and new metadata task
+            stream_response_with_replay = %{
+              stream_response
+              | stream: replay_stream,
+                metadata_task: new_metadata_task
+            }
 
             {:ok, stream_response_with_replay,
              %{
@@ -234,6 +545,117 @@ defmodule AgentObs.ReqLLM do
             {:error, error}
         end
       end)
+
+    case result do
+      {:ok, stream_response, _metadata} ->
+        {:ok, stream_response}
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+  @doc """
+  Wraps `ReqLLM.stream_object/4` with automatic AgentObs instrumentation.
+
+  Instruments structured data streaming with schema validation and automatically
+  extracts token usage, output object, and other metadata for observability.
+  Similar to `trace_stream_text/3` but for structured data generation.
+
+  ## Parameters
+
+  - `model` - Model specification (string like "anthropic:claude-3-5-sonnet" or Model struct)
+  - `messages` - List of message maps or Context
+  - `schema` - Schema definition for structured output (keyword list or map)
+  - `opts` - Options passed to `ReqLLM.stream_object/4` (output, mode, etc.)
+
+  ## Returns
+
+  - `{:ok, stream_response}` - ReqLLM.StreamResponse with instrumentation
+  - `{:error, reason}` - Error from ReqLLM
+
+  ## Examples
+
+      # Basic usage
+      schema = [
+        name: [type: :string, required: true],
+        age: [type: :pos_integer, required: true]
+      ]
+
+      {:ok, response} = AgentObs.ReqLLM.trace_stream_object(
+        "anthropic:claude-3-5-sonnet",
+        [%{role: "user", content: "Generate a person"}],
+        schema
+      )
+
+      # Stream the response
+      response.stream
+      |> Stream.each(&IO.inspect/1)
+      |> Stream.run()
+
+      # Collect the final object
+      result = AgentObs.ReqLLM.collect_stream_object(response)
+      #=> %{object: %{name: "John", age: 30}, tokens: %{...}, ...}
+
+  ## Telemetry
+
+  This function emits standard AgentObs LLM events:
+  - `[:agent_obs, :llm, :start]` - When streaming begins
+  - `[:agent_obs, :llm, :stop]` - When streaming completes (with tokens and object)
+  - `[:agent_obs, :llm, :exception]` - If an error occurs
+  """
+  @spec trace_stream_object(term(), list() | struct(), keyword() | map(), keyword()) ::
+          {:ok, struct()} | {:error, term()}
+  def trace_stream_object(model, messages, schema, opts \\ []) do
+    model_string = normalize_model_string(model)
+    messages_list = normalize_messages(messages)
+
+    # Instrument the LLM call
+    result =
+      AgentObs.trace_llm(
+        model_string,
+        %{input_messages: messages_list, type: "chat", schema: schema},
+        fn ->
+          case ReqLLM.stream_object(model, messages, schema, opts) do
+            {:ok, stream_response} ->
+              # Consume stream to collect metadata, but create a new stream for return
+              {_stream_chunks, replay_stream} = tee_stream(stream_response.stream)
+
+              # Wait for metadata collection
+              metadata = Task.await(stream_response.metadata_task)
+
+              # Extract token usage from metadata
+              tokens = extract_tokens_from_metadata(metadata)
+
+              # Extract object from metadata or chunks
+              object = extract_object_from_metadata(metadata)
+
+              output_messages = [%{role: "assistant", content: object}]
+
+              # Create a new metadata task that returns the already-collected metadata
+              # This allows collect_stream_object to work on the returned stream_response
+              new_metadata_task = Task.async(fn -> metadata end)
+
+              # Return stream_response with replayed stream and new metadata task
+              stream_response_with_replay = %{
+                stream_response
+                | stream: replay_stream,
+                  metadata_task: new_metadata_task
+              }
+
+              {:ok, stream_response_with_replay,
+               %{
+                 output_messages: output_messages,
+                 tokens: tokens,
+                 object: object,
+                 finish_reason: Map.get(metadata, :finish_reason)
+               }}
+
+            {:error, error} ->
+              {:error, error}
+          end
+        end
+      )
 
     case result do
       {:ok, stream_response, _metadata} ->
@@ -350,6 +772,50 @@ defmodule AgentObs.ReqLLM do
     }
   end
 
+  @doc """
+  Collects the complete stream object with automatic instrumentation metadata.
+
+  This is a convenience function for structured data streaming that consumes the
+  entire stream and returns both the object and the full instrumentation metadata.
+
+  ## Parameters
+
+  - `stream_response` - ReqLLM.StreamResponse struct from `trace_stream_object/4`
+
+  ## Returns
+
+  A map containing:
+  - `:object` - Complete structured object matching the schema
+  - `:tokens` - Token usage map
+  - `:finish_reason` - Completion reason
+
+  ## Examples
+
+      {:ok, stream_response} = AgentObs.ReqLLM.trace_stream_object(model, messages, schema)
+
+      %{object: object, tokens: tokens} =
+        AgentObs.ReqLLM.collect_stream_object(stream_response)
+
+  """
+  @spec collect_stream_object(struct()) :: map()
+  def collect_stream_object(stream_response) do
+    # Collect all chunks (consume the stream)
+    _chunks = Enum.to_list(stream_response.stream)
+
+    # Get metadata
+    metadata = Task.await(stream_response.metadata_task)
+
+    # Extract information
+    tokens = extract_tokens_from_metadata(metadata)
+    object = extract_object_from_metadata(metadata)
+
+    %{
+      object: object,
+      tokens: tokens,
+      finish_reason: Map.get(metadata, :finish_reason)
+    }
+  end
+
   # Private helper functions
 
   defp normalize_model_string(model) when is_binary(model), do: model
@@ -455,5 +921,11 @@ defmodule AgentObs.ReqLLM do
       _ ->
         %{prompt: 0, completion: 0, total: 0}
     end
+  end
+
+  defp extract_object_from_metadata(metadata) do
+    # For stream_object, the object is typically in the :object field of metadata
+    # If not present, return an empty map
+    Map.get(metadata, :object, %{})
   end
 end

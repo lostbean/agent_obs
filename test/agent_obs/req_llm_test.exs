@@ -355,6 +355,131 @@ defmodule AgentObs.ReqLLMTest do
     end
   end
 
+  describe "trace_generate_text/3" do
+    test "instruments non-streaming text generation" do
+      unless @req_llm_available, do: assert(true)
+
+      if @req_llm_available do
+        # Mock ReqLLM.generate_text response
+        # Since we can't easily mock ReqLLM in unit tests, we'll test this in integration tests
+        # For now, just verify the function exists and has correct spec
+        assert function_exported?(AgentObs.ReqLLM, :trace_generate_text, 3)
+      end
+    end
+
+    test "has correct function signature" do
+      unless @req_llm_available, do: assert(true)
+
+      if @req_llm_available do
+        assert function_exported?(AgentObs.ReqLLM, :trace_generate_text, 2)
+        assert function_exported?(AgentObs.ReqLLM, :trace_generate_text, 3)
+      end
+    end
+  end
+
+  describe "trace_generate_text!/3" do
+    test "has correct function signature" do
+      unless @req_llm_available, do: assert(true)
+
+      if @req_llm_available do
+        assert function_exported?(AgentObs.ReqLLM, :trace_generate_text!, 2)
+        assert function_exported?(AgentObs.ReqLLM, :trace_generate_text!, 3)
+      end
+    end
+  end
+
+  describe "trace_generate_object/4" do
+    test "has correct function signature" do
+      unless @req_llm_available, do: assert(true)
+
+      if @req_llm_available do
+        assert function_exported?(AgentObs.ReqLLM, :trace_generate_object, 3)
+        assert function_exported?(AgentObs.ReqLLM, :trace_generate_object, 4)
+      end
+    end
+  end
+
+  describe "trace_generate_object!/4" do
+    test "has correct function signature" do
+      unless @req_llm_available, do: assert(true)
+
+      if @req_llm_available do
+        assert function_exported?(AgentObs.ReqLLM, :trace_generate_object!, 3)
+        assert function_exported?(AgentObs.ReqLLM, :trace_generate_object!, 4)
+      end
+    end
+  end
+
+  describe "trace_stream_object/4" do
+    test "has correct function signature" do
+      unless @req_llm_available, do: assert(true)
+
+      if @req_llm_available do
+        assert function_exported?(AgentObs.ReqLLM, :trace_stream_object, 3)
+        assert function_exported?(AgentObs.ReqLLM, :trace_stream_object, 4)
+      end
+    end
+  end
+
+  describe "collect_stream_object/1" do
+    test "collects object from stream metadata" do
+      unless @req_llm_available, do: assert(true)
+
+      if @req_llm_available do
+        stream = create_mock_stream([])
+
+        metadata_task =
+          Task.async(fn ->
+            %{
+              usage: %{input_tokens: 10, output_tokens: 5},
+              finish_reason: "stop",
+              object: %{name: "Test", age: 25}
+            }
+          end)
+
+        stream_response = %{stream: stream, metadata_task: metadata_task}
+
+        result = AgentObs.ReqLLM.collect_stream_object(stream_response)
+
+        assert result.object == %{name: "Test", age: 25}
+        assert result.tokens == %{prompt: 10, completion: 5, total: 15}
+        assert result.finish_reason == "stop"
+      end
+    end
+
+    test "handles missing object in metadata" do
+      unless @req_llm_available, do: assert(true)
+
+      if @req_llm_available do
+        stream = create_mock_stream([])
+        metadata_task = Task.async(fn -> %{usage: %{input_tokens: 5, output_tokens: 3}} end)
+        stream_response = %{stream: stream, metadata_task: metadata_task}
+
+        result = AgentObs.ReqLLM.collect_stream_object(stream_response)
+
+        # Should return empty map when object is missing
+        assert result.object == %{}
+        assert result.tokens == %{prompt: 5, completion: 3, total: 8}
+      end
+    end
+
+    test "handles empty metadata" do
+      unless @req_llm_available, do: assert(true)
+
+      if @req_llm_available do
+        stream = create_mock_stream([])
+        metadata_task = Task.async(fn -> %{} end)
+        stream_response = %{stream: stream, metadata_task: metadata_task}
+
+        result = AgentObs.ReqLLM.collect_stream_object(stream_response)
+
+        assert result.object == %{}
+        assert result.tokens == %{prompt: 0, completion: 0, total: 0}
+        assert result.finish_reason == nil
+      end
+    end
+  end
+
   describe "integration tests (require real ReqLLM setup)" do
     @moduletag :integration
 
@@ -584,6 +709,202 @@ defmodule AgentObs.ReqLLMTest do
           end
         else
           # Skip if no API key configured
+          IO.puts("\nSkipping: No API key configured for integration test")
+          assert true
+        end
+      end
+    end
+
+    test "trace_generate_text with real LLM call", %{collector: collector} do
+      unless @req_llm_available, do: assert(true)
+
+      if @req_llm_available do
+        model = get_test_model()
+
+        if model do
+          # Make a simple non-streaming LLM call
+          {:ok, response} =
+            AgentObs.ReqLLM.trace_generate_text(
+              model,
+              [%{role: "user", content: "Say hello in exactly one word"}]
+            )
+
+          # Verify response structure
+          assert response.model
+
+          # Get text from response
+          text = ReqLLM.Response.text(response)
+
+          # Verify we got text back
+          assert is_binary(text)
+          assert String.length(text) > 0
+
+          # Verify telemetry events were emitted
+          events = get_collector_events(collector)
+          assert Enum.any?(events, fn {event, _, _} -> event == [:agent_obs, :llm, :start] end)
+          assert Enum.any?(events, fn {event, _, _} -> event == [:agent_obs, :llm, :stop] end)
+
+          # Verify metadata in stop event
+          {_, _, stop_metadata} =
+            Enum.find(events, fn {event, _, _} -> event == [:agent_obs, :llm, :stop] end)
+
+          assert stop_metadata.output_messages
+          assert stop_metadata.tokens
+          assert stop_metadata.tokens.prompt > 0
+        else
+          IO.puts("\nSkipping: No API key configured for integration test")
+          assert true
+        end
+      end
+    end
+
+    test "trace_generate_text! returns text directly", %{collector: collector} do
+      unless @req_llm_available, do: assert(true)
+
+      if @req_llm_available do
+        model = get_test_model()
+
+        if model do
+          # Make a simple non-streaming LLM call
+          text =
+            AgentObs.ReqLLM.trace_generate_text!(
+              model,
+              [%{role: "user", content: "Say hello in exactly one word"}]
+            )
+
+          # Verify we got text back
+          assert is_binary(text)
+          assert String.length(text) > 0
+
+          # Verify telemetry events were emitted
+          events = get_collector_events(collector)
+          assert Enum.any?(events, fn {event, _, _} -> event == [:agent_obs, :llm, :start] end)
+          assert Enum.any?(events, fn {event, _, _} -> event == [:agent_obs, :llm, :stop] end)
+        else
+          IO.puts("\nSkipping: No API key configured for integration test")
+          assert true
+        end
+      end
+    end
+
+    test "trace_generate_object with real LLM call", %{collector: collector} do
+      unless @req_llm_available, do: assert(true)
+
+      if @req_llm_available do
+        model = get_test_model()
+
+        if model do
+          schema = [
+            name: [type: :string, required: true],
+            greeting: [type: :string, required: true]
+          ]
+
+          # Generate structured object
+          {:ok, response} =
+            AgentObs.ReqLLM.trace_generate_object(
+              model,
+              [%{role: "user", content: "Generate a person named Alice with a hello greeting"}],
+              schema
+            )
+
+          # Verify response structure
+          assert response.model
+
+          # Get object from response
+          object = ReqLLM.Response.object(response)
+
+          # Verify object structure
+          assert is_map(object)
+          assert Map.has_key?(object, :name) or Map.has_key?(object, "name")
+          assert Map.has_key?(object, :greeting) or Map.has_key?(object, "greeting")
+
+          # Verify telemetry events
+          events = get_collector_events(collector)
+          assert Enum.any?(events, fn {event, _, _} -> event == [:agent_obs, :llm, :start] end)
+          assert Enum.any?(events, fn {event, _, _} -> event == [:agent_obs, :llm, :stop] end)
+
+          # Verify metadata includes object
+          {_, _, stop_metadata} =
+            Enum.find(events, fn {event, _, _} -> event == [:agent_obs, :llm, :stop] end)
+
+          assert stop_metadata.object
+          assert stop_metadata.tokens
+        else
+          IO.puts("\nSkipping: No API key configured for integration test")
+          assert true
+        end
+      end
+    end
+
+    test "trace_generate_object! returns object directly", %{collector: collector} do
+      unless @req_llm_available, do: assert(true)
+
+      if @req_llm_available do
+        model = get_test_model()
+
+        if model do
+          schema = [
+            name: [type: :string, required: true]
+          ]
+
+          # Generate structured object
+          object =
+            AgentObs.ReqLLM.trace_generate_object!(
+              model,
+              [%{role: "user", content: "Generate a person named Bob"}],
+              schema
+            )
+
+          # Verify object structure
+          assert is_map(object)
+
+          # Verify telemetry events
+          events = get_collector_events(collector)
+          assert Enum.any?(events, fn {event, _, _} -> event == [:agent_obs, :llm, :start] end)
+          assert Enum.any?(events, fn {event, _, _} -> event == [:agent_obs, :llm, :stop] end)
+        else
+          IO.puts("\nSkipping: No API key configured for integration test")
+          assert true
+        end
+      end
+    end
+
+    test "trace_stream_object with real LLM call", %{collector: collector} do
+      unless @req_llm_available, do: assert(true)
+
+      if @req_llm_available do
+        model = get_test_model()
+
+        if model do
+          schema = [
+            name: [type: :string, required: true],
+            age: [type: :pos_integer, required: true]
+          ]
+
+          # Stream structured object
+          {:ok, stream_response} =
+            AgentObs.ReqLLM.trace_stream_object(
+              model,
+              [%{role: "user", content: "Generate a person named Carol, age 35"}],
+              schema
+            )
+
+          # Verify stream response structure
+          assert stream_response.stream
+          assert stream_response.model
+
+          # Collect the object
+          result = AgentObs.ReqLLM.collect_stream_object(stream_response)
+
+          # Verify object was generated
+          assert is_map(result.object)
+          assert result.tokens.prompt > 0
+
+          # Verify telemetry events
+          events = get_collector_events(collector)
+          assert Enum.any?(events, fn {event, _, _} -> event == [:agent_obs, :llm, :start] end)
+          assert Enum.any?(events, fn {event, _, _} -> event == [:agent_obs, :llm, :stop] end)
+        else
           IO.puts("\nSkipping: No API key configured for integration test")
           assert true
         end

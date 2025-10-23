@@ -2,12 +2,16 @@
 
 **An Elixir library for LLM agent observability.**
 
-AgentObs provides a simple, powerful, and idiomatic interface for instrumenting LLM agentic applications with telemetry events. It supports multiple observability backends through a pluggable handler architecture.
+AgentObs provides a simple, powerful, and idiomatic interface for instrumenting
+LLM agentic applications with telemetry events. It supports multiple
+observability backends through a pluggable handler architecture.
 
 ## Features
 
-- 🎯 **High-level instrumentation helpers** - `trace_agent/3`, `trace_tool/3`, `trace_llm/3`, `trace_prompt/3`
-- 🔌 **Pluggable backend architecture** - Support for multiple observability platforms
+- 🎯 **High-level instrumentation helpers** - `trace_agent/3`, `trace_tool/3`,
+  `trace_llm/3`, `trace_prompt/3`
+- 🔌 **Pluggable backend architecture** - Support for multiple observability
+  platforms
 - 🌟 **OpenInference support** - Full semantic conventions for Arize Phoenix
 - 📊 **Rich metadata tracking** - Token usage, costs, tool calls, and more
 - 🚀 **Built on OTP** - Supervised handlers with fault tolerance
@@ -152,37 +156,60 @@ config :agent_obs,
 
 ## ReqLLM Integration (Optional)
 
-For applications using [ReqLLM](https://hexdocs.pm/req_llm), AgentObs provides high-level helpers that automatically instrument streaming LLM calls:
+For applications using [ReqLLM](https://hexdocs.pm/req_llm), AgentObs provides
+high-level helpers that automatically instrument LLM calls with full
+observability:
 
 ```elixir
 # Add to your deps
 {:req_llm, "~> 1.0.0-rc.7"}
 
-# Instrumented streaming
-{:ok, stream_response} =
-  AgentObs.ReqLLM.trace_stream_text(
+# Non-streaming text generation
+{:ok, response} =
+  AgentObs.ReqLLM.trace_generate_text(
     "anthropic:claude-3-5-sonnet",
     [%{role: "user", content: "Hello!"}]
   )
 
-# Stream output in real-time (instrumentation happens automatically)
+text = ReqLLM.Response.text(response)
+
+# Streaming text generation
+{:ok, stream_response} =
+  AgentObs.ReqLLM.trace_stream_text(
+    "anthropic:claude-3-5-sonnet",
+    [%{role: "user", content: "Tell me a story"}]
+  )
+
 stream_response.stream
 |> Stream.filter(&(&1.type == :content))
 |> Stream.each(&IO.write(&1.text))
 |> Stream.run()
 
-# Token usage automatically extracted
-tokens = ReqLLM.StreamResponse.usage(stream_response)
+# Structured data generation
+schema = [name: [type: :string, required: true], age: [type: :pos_integer]]
+
+{:ok, response} =
+  AgentObs.ReqLLM.trace_generate_object(
+    "anthropic:claude-3-5-sonnet",
+    [%{role: "user", content: "Generate a person"}],
+    schema
+  )
+
+object = ReqLLM.Response.object(response)
+#=> %{name: "Alice", age: 30}
 ```
 
 **Benefits:**
 
-- No manual token extraction
-- No manual tool call parsing
+- Automatic token usage extraction
+- Automatic tool call parsing
 - Works across all ReqLLM providers (Anthropic, OpenAI, Google, etc.)
-- Streaming preserved (non-blocking instrumentation)
+- Supports both streaming and non-streaming
+- Structured data generation with schema validation
+- Bang variants (`!`) for convenience
 
-See the [demo agent](demo/lib/demo/agent.ex) for a complete example.
+See the [demo agent](demo/lib/demo/agent.ex) and
+[ReqLLM integration guide](guides/req_llm_integration.md) for complete examples.
 
 ## API Reference
 
@@ -195,16 +222,35 @@ See the [demo agent](demo/lib/demo/agent.ex) for a complete example.
 
 ### ReqLLM Helpers (Optional)
 
-- **`AgentObs.ReqLLM.trace_stream_text/3`** - Instrumented ReqLLM streaming
+**Text Generation:**
+
+- **`AgentObs.ReqLLM.trace_generate_text/3`** - Non-streaming text generation
+- **`AgentObs.ReqLLM.trace_generate_text!/3`** - Non-streaming (bang variant)
+- **`AgentObs.ReqLLM.trace_stream_text/3`** - Streaming text generation
+
+**Structured Data Generation:**
+
+- **`AgentObs.ReqLLM.trace_generate_object/4`** - Non-streaming structured data
+- **`AgentObs.ReqLLM.trace_generate_object!/4`** - Non-streaming (bang variant)
+- **`AgentObs.ReqLLM.trace_stream_object/4`** - Streaming structured data
+
+**Tool Execution:**
+
 - **`AgentObs.ReqLLM.trace_tool_execution/3`** - Instrumented tool execution
-- **`AgentObs.ReqLLM.collect_stream/1`** - Collect stream with metadata
+
+**Stream Helpers:**
+
+- **`AgentObs.ReqLLM.collect_stream/1`** - Collect text stream with metadata
+- **`AgentObs.ReqLLM.collect_stream_object/1`** - Collect object stream with
+  metadata
 
 ### Low-Level API
 
 - **`emit/2`** - Emits custom telemetry events
 - **`configure/1`** - Runtime configuration updates
 
-See the [full documentation](https://hexdocs.pm/agent_obs) for detailed API reference and examples.
+See the [full documentation](https://hexdocs.pm/agent_obs) for detailed API
+reference and examples.
 
 ## Testing
 
@@ -223,21 +269,28 @@ mix test --only integration
 
 ### ReqLLM Integration Tests
 
-The ReqLLM module includes 15 tests split into two categories:
+The ReqLLM module includes comprehensive test coverage with 193 tests:
 
-**Unit Tests (12 tests)** - Run by default, use mocked streams:
+**Unit Tests (185 tests)** - Run by default, use mocked streams:
 
-- Stream text collection and aggregation
+- Stream text and object collection
 - Tool call extraction and argument parsing
 - Token usage extraction
+- Function signature validation
 - Error handling (malformed JSON, missing data)
 - Edge cases (nil values, partial data, multiple fragments)
+- All generate_text, generate_object, and stream_object variants
 
-**Integration Tests (3 tests)** - Excluded by default, require real LLM API calls:
+**Integration Tests (8 tests)** - Excluded by default, require real LLM API
+calls:
 
 - Real LLM streaming with telemetry verification
+- Real non-streaming text generation
+- Real structured data generation (objects)
+- Real streaming object generation
 - Real tool execution with instrumentation
 - Full agent loop with streaming and tools
+- Bang variants (`!`) with real API calls
 
 To run integration tests, set one of these environment variables:
 

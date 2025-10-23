@@ -100,7 +100,36 @@ the implementation.
 
 ## Basic Usage
 
-### Simple Streaming
+### Non-Streaming Text Generation
+
+For simple, blocking text generation:
+
+```elixir
+# Returns full response with metadata
+{:ok, response} =
+  AgentObs.ReqLLM.trace_generate_text(
+    "anthropic:claude-3-5-sonnet",
+    [%{role: "user", content: "Write a haiku about Elixir"}]
+  )
+
+# Extract text from response
+text = ReqLLM.Response.text(response)
+IO.puts(text)
+
+# Access usage metadata
+usage = ReqLLM.Response.usage(response)
+IO.inspect(usage) # %{input_tokens: 15, output_tokens: 20}
+
+# Bang variant for convenience (raises on error)
+text = AgentObs.ReqLLM.trace_generate_text!(
+  "anthropic:claude-3-5-sonnet",
+  [%{role: "user", content: "Hello!"}]
+)
+```
+
+### Streaming Text Generation
+
+For real-time streaming:
 
 ```elixir
 {:ok, stream_response} =
@@ -118,6 +147,67 @@ stream_response.stream
 # Automatically captured metadata
 tokens = ReqLLM.StreamResponse.usage(stream_response)
 IO.inspect(tokens) # %{input_tokens: 15, output_tokens: 20}
+```
+
+### Structured Data Generation
+
+Generate structured data with schema validation:
+
+```elixir
+# Define schema
+schema = [
+  name: [type: :string, required: true],
+  age: [type: :pos_integer, required: true],
+  hobbies: [type: {:list, :string}]
+]
+
+# Non-streaming structured data
+{:ok, response} =
+  AgentObs.ReqLLM.trace_generate_object(
+    "anthropic:claude-3-5-sonnet",
+    [%{role: "user", content: "Generate a person named Alice who likes reading"}],
+    schema
+  )
+
+object = ReqLLM.Response.object(response)
+#=> %{name: "Alice", age: 30, hobbies: ["reading", "writing"]}
+
+# Bang variant
+object = AgentObs.ReqLLM.trace_generate_object!(
+  "anthropic:claude-3-5-sonnet",
+  [%{role: "user", content: "Generate a person"}],
+  schema
+)
+```
+
+### Streaming Structured Data
+
+Stream structured data generation in real-time:
+
+```elixir
+schema = [
+  title: [type: :string, required: true],
+  chapters: [type: {:list, :string}, required: true]
+]
+
+{:ok, stream_response} =
+  AgentObs.ReqLLM.trace_stream_object(
+    "anthropic:claude-3-5-sonnet",
+    [%{role: "user", content: "Create a book outline about Elixir"}],
+    schema
+  )
+
+# Stream chunks as they arrive
+stream_response.stream
+|> Stream.each(&IO.inspect/1)
+|> Stream.run()
+
+# Collect final object with metadata
+result = AgentObs.ReqLLM.collect_stream_object(stream_response)
+IO.inspect(result.object)
+#=> %{title: "Mastering Elixir", chapters: ["Getting Started", "OTP", ...]}
+IO.inspect(result.tokens)
+#=> %{prompt: 20, completion: 50, total: 70}
 ```
 
 ### With Tools
@@ -389,7 +479,7 @@ For truly non-blocking streaming where you handle metadata manually, use
 
 ### Collecting Stream Metadata
 
-If you need to collect the entire stream with metadata:
+For text streams:
 
 ```elixir
 {:ok, stream_response} =
@@ -401,6 +491,21 @@ collected = AgentObs.ReqLLM.collect_stream(stream_response)
 # Access collected data
 collected.text          # Full response text
 collected.tool_calls    # Extracted tool calls with arguments
+collected.tokens        # Token usage
+collected.finish_reason # Why the stream ended
+```
+
+For structured data streams:
+
+```elixir
+{:ok, stream_response} =
+  AgentObs.ReqLLM.trace_stream_object(model, messages, schema)
+
+# Collect object with metadata
+collected = AgentObs.ReqLLM.collect_stream_object(stream_response)
+
+# Access collected data
+collected.object        # Complete structured object
 collected.tokens        # Token usage
 collected.finish_reason # Why the stream ended
 ```
@@ -616,6 +721,60 @@ Token extraction is automatic. Check if the provider supports usage metadata:
 tokens = ReqLLM.StreamResponse.usage(stream_response)
 # Returns %{input_tokens: ..., output_tokens: ...}
 ```
+
+## API Summary
+
+### Complete Function Reference
+
+| Function                   | Type          | Returns                    | Use Case                                  |
+| -------------------------- | ------------- | -------------------------- | ----------------------------------------- |
+| `trace_generate_text/3`    | Non-streaming | `{:ok, response}`          | Simple text generation with full metadata |
+| `trace_generate_text!/3`   | Non-streaming | `text` (raises on error)   | Convenience for simple text               |
+| `trace_stream_text/3`      | Streaming     | `{:ok, stream_response}`   | Real-time text streaming                  |
+| `trace_generate_object/4`  | Non-streaming | `{:ok, response}`          | Structured data with schema               |
+| `trace_generate_object!/4` | Non-streaming | `object` (raises on error) | Convenience for objects                   |
+| `trace_stream_object/4`    | Streaming     | `{:ok, stream_response}`   | Real-time structured data                 |
+| `trace_tool_execution/3`   | Synchronous   | `{:ok, result}`            | Execute tools with instrumentation        |
+| `collect_stream/1`         | Helper        | `%{text, tokens, ...}`     | Collect complete text stream              |
+| `collect_stream_object/1`  | Helper        | `%{object, tokens, ...}`   | Collect complete object stream            |
+
+### When to Use Each Function
+
+**Use `trace_generate_text/3`** when:
+
+- You need the complete response before proceeding
+- You want access to full metadata (finish_reason, etc.)
+- Streaming is not necessary
+
+**Use `trace_generate_text!/3`** when:
+
+- You only need the text content
+- You want simpler error handling (let it raise)
+- Response metadata is not needed
+
+**Use `trace_stream_text/3`** when:
+
+- You want real-time output to users
+- Minimizing time-to-first-token is important
+- You need to display progress
+
+**Use `trace_generate_object/4`** when:
+
+- You need structured, validated data
+- Schema compliance is required
+- Streaming is not necessary
+
+**Use `trace_generate_object!/4`** when:
+
+- You only need the object
+- You want simpler error handling
+- Response metadata is not needed
+
+**Use `trace_stream_object/4`** when:
+
+- You want real-time structured data generation
+- You need progressive updates of the object
+- Minimizing time-to-first-token is important
 
 ## Next Steps
 
