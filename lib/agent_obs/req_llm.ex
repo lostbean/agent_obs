@@ -707,6 +707,7 @@ defmodule AgentObs.ReqLLM do
   - `[:agent_obs, :tool, :exception]` - If tool execution fails
   """
   @spec trace_tool_execution(struct(), map(), keyword()) :: {:ok, term()} | {:error, term()}
+  @dialyzer {:nowarn_function, trace_tool_execution: 3}
   def trace_tool_execution(tool, tool_call, opts \\ []) do
     _ = opts
 
@@ -718,7 +719,8 @@ defmodule AgentObs.ReqLLM do
         {:error, error} ->
           {:error, error}
 
-        # ReqLLM.Tool.execute can also return raw values from the callback
+        # ReqLLM.Tool.execute can return raw values when the callback doesn't wrap in {:ok, _}
+        # Dialyzer thinks this is unreachable, but it happens in practice (see integration tests)
         result ->
           {:ok, result, %{result: result}}
       end

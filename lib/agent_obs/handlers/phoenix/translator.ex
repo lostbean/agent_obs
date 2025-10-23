@@ -334,9 +334,9 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
     end
   end
 
-  # Extract text from ContentPart structs or plain strings
+  # Extract text from ContentPart structs or list of plain strings
+  # Note: Only called when value is a list (see guard on line 329)
   defp extract_text_content([]), do: nil
-  defp extract_text_content(content) when is_binary(content), do: content
 
   defp extract_text_content(content) when is_list(content) do
     content
