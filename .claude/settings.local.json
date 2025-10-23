@@ -17,7 +17,8 @@
       "Bash(mix test)",
       "mcp__chrome-devtools__take_screenshot",
       "mcp__chrome-devtools__evaluate_script",
-      "Bash(OTLP_BACKEND=jaeger mix run -e 'IO.inspect(Application.get_env(:agent_obs, :handlers))')"
+      "Bash(OTLP_BACKEND=jaeger mix run -e 'IO.inspect(Application.get_env(:agent_obs, :handlers))')",
+      "Bash(mix test:*)"
     ],
     "deny": [],
     "ask": []

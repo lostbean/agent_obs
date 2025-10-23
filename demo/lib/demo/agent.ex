@@ -2,8 +2,15 @@ defmodule Demo.Agent do
   @moduledoc """
   An instrumented AI agent using ReqLLM with AgentObs observability.
 
-  This agent wraps the req_llm streaming API with comprehensive AgentObs instrumentation,
-  demonstrating how to trace agent loops, tool calls, and LLM interactions.
+  This agent demonstrates how to use AgentObs.ReqLLM helpers for automatic
+  instrumentation with minimal boilerplate code.
+
+  Features:
+  - Automatic LLM call instrumentation with `AgentObs.ReqLLM.trace_stream_text/3`
+  - Automatic tool execution instrumentation with `AgentObs.ReqLLM.trace_tool_execution/3`
+  - Automatic token extraction and tool call parsing
+  - Real-time streaming to console
+  - Full conversation history management
   """
 
   use GenServer
@@ -100,74 +107,49 @@ defmodule Demo.Agent do
   # Private functions
 
   defp stream_and_handle_tools(model, history, tools) do
-    # Instrument the LLM call
-    result =
-      AgentObs.trace_llm(model, %{input_messages: history.messages, type: "chat"}, fn ->
-        case ReqLLM.stream_text(model, history.messages, tools: tools) do
-          {:ok, stream_response} ->
-            # Stream chunks to console in real-time and collect for processing
-            chunks =
-              stream_response.stream
-              |> Enum.map(fn chunk ->
-                # Stream to console immediately
-                IO.write(chunk.text)
-                chunk
-              end)
-
-            tool_calls = extract_tool_calls_from_chunks(chunks)
-            text = chunks |> Enum.map_join("", & &1.text)
-
-            # Extract token usage from stream response metadata
-            tokens = extract_token_usage(stream_response)
-
-            output_messages =
-              if tool_calls != [] do
-                [%{role: "assistant", content: text, tool_calls: tool_calls}]
-              else
-                [%{role: "assistant", content: text}]
-              end
-
-            {:ok, text,
-             %{
-               tool_calls: tool_calls,
-               history: history,
-               output_messages: output_messages,
-               tokens: tokens
-             }}
-
-          {:error, error} ->
-            {:error, error}
-        end
-      end)
-
-    case result do
-      {:ok, text, %{tool_calls: [], history: history}} ->
-        final_history = Context.append(history, Context.assistant(text))
-        {:ok, final_history, text, []}
-
-      {:ok, initial_text, %{tool_calls: tool_calls, history: history}} ->
-        # Process tool calls
-        assistant_message = Context.assistant(initial_text, tool_calls: tool_calls)
-        history_with_tool_call = Context.append(history, assistant_message)
-
-        IO.write("\n")
-
-        # Track which tools were used
-        tools_used = Enum.map(tool_calls, & &1.name)
-
-        # Execute tools and show results
-        history_with_results =
-          Enum.reduce(tool_calls, history_with_tool_call, fn tool_call, ctx ->
-            execute_instrumented_tool(tool_call, tools, ctx)
+    # Use AgentObs.ReqLLM helper for automatic instrumentation
+    case AgentObs.ReqLLM.trace_stream_text(model, history.messages, tools: tools) do
+      {:ok, stream_response} ->
+        # Stream chunks to console in real-time
+        chunks =
+          stream_response.stream
+          |> Enum.map(fn chunk ->
+            IO.write(chunk.text)
+            chunk
           end)
 
-        # Second LLM call with tool results
-        case stream_final_response(model, history_with_results) do
-          {:ok, final_history, final_text} ->
-            {:ok, final_history, final_text, tools_used}
+        # Extract data from the streamed response
+        text = chunks |> Enum.filter(&(&1.type == :content)) |> Enum.map_join("", & &1.text)
+        tool_calls = ReqLLM.StreamResponse.extract_tool_calls(stream_response)
 
-          {:error, error} ->
-            {:error, error}
+        # Handle response based on whether tools were called
+        if tool_calls == [] do
+          final_history = Context.append(history, Context.assistant(text))
+          {:ok, final_history, text, []}
+        else
+          # Process tool calls
+          assistant_message = Context.assistant(text, tool_calls: tool_calls)
+          history_with_tool_call = Context.append(history, assistant_message)
+
+          IO.write("\n")
+
+          # Track which tools were used
+          tools_used = Enum.map(tool_calls, & &1.name)
+
+          # Execute tools and show results
+          history_with_results =
+            Enum.reduce(tool_calls, history_with_tool_call, fn tool_call, ctx ->
+              execute_instrumented_tool(tool_call, tools, ctx)
+            end)
+
+          # Second LLM call with tool results
+          case stream_final_response(model, history_with_results) do
+            {:ok, final_history, final_text} ->
+              {:ok, final_history, final_text, tools_used}
+
+            {:error, error} ->
+              {:error, error}
+          end
         end
 
       {:error, error} ->
@@ -180,29 +162,28 @@ defmodule Demo.Agent do
     tool = Enum.find(tools, fn t -> t.name == tool_call.name end)
 
     if tool do
-      # Instrument tool execution
-      result =
-        AgentObs.trace_tool(tool_call.name, %{arguments: tool_call.arguments}, fn ->
-          case ReqLLM.Tool.execute(tool, tool_call.arguments) do
-            {:ok, result} ->
-              IO.write(
-                "🔧 #{tool_call.name}(#{inspect(tool_call.arguments)}) → #{inspect(result)}\n"
-              )
-
-              {:ok, result}
-
-            {:error, error} ->
-              IO.write("❌ #{tool_call.name}: #{inspect(error)}\n")
-              {:error, error}
-          end
-        end)
+      # Use AgentObs.ReqLLM helper for automatic instrumentation
+      result = AgentObs.ReqLLM.trace_tool_execution(tool, tool_call)
 
       case result do
         {:ok, tool_result} ->
+          IO.write(
+            "🔧 #{tool_call.name}(#{inspect(tool_call.arguments)}) → #{inspect(tool_result)}\n"
+          )
+
+          tool_result_msg = Context.tool_result_message(tool_call.name, tool_call.id, tool_result)
+          Context.append(context, tool_result_msg)
+
+        {:ok, tool_result, _metadata} ->
+          IO.write(
+            "🔧 #{tool_call.name}(#{inspect(tool_call.arguments)}) → #{inspect(tool_result)}\n"
+          )
+
           tool_result_msg = Context.tool_result_message(tool_call.name, tool_call.id, tool_result)
           Context.append(context, tool_result_msg)
 
         {:error, error} ->
+          IO.write("❌ #{tool_call.name}: #{inspect(error)}\n")
           error_result = %{error: "Tool execution failed: #{inspect(error)}"}
 
           tool_result_msg =
@@ -217,110 +198,26 @@ defmodule Demo.Agent do
   end
 
   defp stream_final_response(model, history) do
-    # Second LLM call to get final response with tool results
-    result =
-      AgentObs.trace_llm(model, %{input_messages: history.messages, type: "chat"}, fn ->
-        case ReqLLM.stream_text(model, history.messages) do
-          {:ok, stream_response} ->
-            IO.write("\n")
+    # Use AgentObs.ReqLLM helper for automatic instrumentation
+    case AgentObs.ReqLLM.trace_stream_text(model, history.messages) do
+      {:ok, stream_response} ->
+        IO.write("\n")
 
-            # Stream final response to console in real-time
-            final_chunks =
-              stream_response.stream
-              |> Enum.map(fn chunk ->
-                # Stream to console immediately
-                IO.write(chunk.text)
-                chunk
-              end)
+        # Stream final response to console in real-time
+        final_text =
+          stream_response.stream
+          |> Enum.filter(&(&1.type == :content))
+          |> Enum.map(fn chunk ->
+            IO.write(chunk.text)
+            chunk.text
+          end)
+          |> Enum.join("")
 
-            final_text = final_chunks |> Enum.map_join("", & &1.text)
-
-            # Extract token usage
-            tokens = extract_token_usage(stream_response)
-
-            {:ok, final_text,
-             %{
-               output_messages: [%{role: "assistant", content: final_text}],
-               tokens: tokens
-             }}
-
-          {:error, error} ->
-            {:error, error}
-        end
-      end)
-
-    case result do
-      {:ok, final_text, _metadata} ->
         final_history = Context.append(history, Context.assistant(final_text))
         {:ok, final_history, final_text}
 
       {:error, error} ->
         {:error, error}
-    end
-  end
-
-  defp extract_tool_calls_from_chunks(chunks) do
-    # Base tool calls with index
-    tool_calls =
-      chunks
-      |> Enum.filter(&(&1.type == :tool_call))
-      |> Enum.map(fn chunk ->
-        %{
-          id: Map.get(chunk.metadata, :id) || "call_#{:erlang.unique_integer()}",
-          name: chunk.name,
-          arguments: chunk.arguments || %{},
-          index: Map.get(chunk.metadata, :index, 0)
-        }
-      end)
-
-    # Collect argument fragments from meta chunks
-    arg_fragments =
-      chunks
-      |> Enum.filter(&(&1.type == :meta))
-      |> Enum.filter(&Map.has_key?(&1.metadata, :tool_call_args))
-      |> Enum.group_by(& &1.metadata.tool_call_args.index)
-      |> Map.new(fn {index, fragments} ->
-        # Handle both :partial_json (older) and :fragment (newer) keys
-        args_json =
-          fragments
-          |> Enum.map_join("", fn frag ->
-            Map.get(frag.metadata.tool_call_args, :partial_json) ||
-              Map.get(frag.metadata.tool_call_args, :fragment) ||
-              ""
-          end)
-
-        # Only decode if we have content
-        if args_json != "" do
-          {index, Jason.decode!(args_json)}
-        else
-          {index, %{}}
-        end
-      end)
-
-    # Merge argument fragments into tool calls
-    tool_calls
-    |> Enum.map(fn tc ->
-      if Map.has_key?(arg_fragments, tc.index) do
-        %{tc | arguments: arg_fragments[tc.index]}
-      else
-        tc
-      end
-    end)
-  end
-
-  defp extract_token_usage(stream_response) do
-    # ReqLLM provides usage data through ReqLLM.StreamResponse.usage/1
-    case ReqLLM.StreamResponse.usage(stream_response) do
-      %{input_tokens: input, output_tokens: output} ->
-        %{
-          prompt: input || 0,
-          completion: output || 0,
-          total: (input || 0) + (output || 0)
-        }
-
-      _ ->
-        # If no usage data available, return zeros
-        %{prompt: 0, completion: 0, total: 0}
     end
   end
 

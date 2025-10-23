@@ -118,21 +118,21 @@ bridge the Elixir, Telemetry, and OpenTelemetry ecosystems. Consolidating these
 from various setup guides ensures a correct and complete starting point for
 developers.8 **Table 1: Core Library Dependencies**
 
-| Package                                | Recommended Version | Purpose                                                                                                                                                                                               |
-| :------------------------------------- | :------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| {:telemetry, "\~\> 1.0"}               | \~\> 1.0            | The core Erlang/Elixir library for emitting and handling telemetry events. This is the foundation upon which the library's instrumentation is built.11                                                |
-| {:opentelemetry\_api, "\~\> 1.2"}      | \~\> 1.2            | Provides the core OpenTelemetry APIs and macros (Tracer.with\_span, etc.) for creating spans and adding attributes within application code.9                                                          |
-| {:opentelemetry, "\~\> 1.3"}           | \~\> 1.3            | The OpenTelemetry SDK implementation, which contains the logic for processing, sampling, and exporting telemetry data.9                                                                               |
-| {:opentelemetry\_exporter, "\~\> 1.6"} | \~\> 1.6            | Contains the OpenTelemetry Protocol (OTLP) exporter, which is responsible for sending formatted trace data to a compatible backend like Arize Phoenix.9                                               |
-| {:jason, "\~\> 1.2"}                   | \~\> 1.2            | A high-performance JSON library, essential for serializing complex metadata attributes, such as tool arguments or invocation parameters, into the string format required by the OTLP specification.12 |
-| {:ex\_doc, "\~\> 0.28", only: :dev}    | \~\> 0.28           | The standard tool for generating high-quality HTML and EPUB documentation from inline code comments, reflecting the Elixir community's emphasis on documentation as a first-class citizen.13          |
+| Package                               | Recommended Version | Purpose                                                                                                                                                                                               |
+| :------------------------------------ | :------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| {:telemetry, "\~\> 1.0"}              | \~\> 1.0            | The core Erlang/Elixir library for emitting and handling telemetry events. This is the foundation upon which the library's instrumentation is built.11                                                |
+| {:opentelemetry_api, "\~\> 1.2"}      | \~\> 1.2            | Provides the core OpenTelemetry APIs and macros (Tracer.with_span, etc.) for creating spans and adding attributes within application code.9                                                           |
+| {:opentelemetry, "\~\> 1.3"}          | \~\> 1.3            | The OpenTelemetry SDK implementation, which contains the logic for processing, sampling, and exporting telemetry data.9                                                                               |
+| {:opentelemetry_exporter, "\~\> 1.6"} | \~\> 1.6            | Contains the OpenTelemetry Protocol (OTLP) exporter, which is responsible for sending formatted trace data to a compatible backend like Arize Phoenix.9                                               |
+| {:jason, "\~\> 1.2"}                  | \~\> 1.2            | A high-performance JSON library, essential for serializing complex metadata attributes, such as tool arguments or invocation parameters, into the string format required by the OTLP specification.12 |
+| {:ex_doc, "\~\> 0.28", only: :dev}    | \~\> 0.28           | The standard tool for generating high-quality HTML and EPUB documentation from inline code comments, reflecting the Elixir community's emphasis on documentation as a first-class citizen.13          |
 
 #### **Project Metadata and Documentation**
 
 Following best practices for library development, the mix.exs file is also
 populated with descriptive metadata, including a description, package
 configuration specifying the files to be published, maintainer information, and
-a license (e.g., Apache 2.0, same as Elixir itself).5 The inclusion of ex\_doc
+a license (e.g., Apache 2.0, same as Elixir itself).5 The inclusion of ex_doc
 in the dependencies underscores a commitment to providing comprehensive and
 accessible documentation, a hallmark of a mature Elixir project.7
 
@@ -359,34 +359,113 @@ AgentObs.configure(
 )
 ```
 
-### **Req Integration**
+### **ReqLLM Integration**
 
-#### **AgentObs.Req.attach/1**
+For applications using the [ReqLLM](https://hexdocs.pm/req_llm) library, AgentObs provides high-level helper functions that wrap ReqLLM's streaming API with automatic instrumentation.
 
-Attaches automatic instrumentation to a `Req` client for LLM API calls made via
-`req_llm`.
+#### **Why ReqLLM Instead of Low-Level Req Middleware?**
+
+ReqLLM is a unified interface to AI providers that already handles:
+
+- Parsing provider-specific streaming responses
+- Extracting token usage and costs
+- Normalizing tool calls across providers
+- Managing conversation context
+
+By integrating at the ReqLLM level (instead of low-level Req middleware), AgentObs leverages these abstractions rather than duplicating them.
+
+#### **Installation**
+
+Add `:req_llm` as an optional dependency:
 
 ```elixir
-req = Req.new() |> AgentObs.Req.attach()
+def deps do
+  [
+    {:agent_obs, "~> 0.1"},
+    {:req_llm, "~> 1.0.0-rc.7"}
+  ]
+end
 ```
 
-This middleware automatically:
+#### **AgentObs.ReqLLM.trace_stream_text/3**
 
-- Detects LLM API calls (OpenAI, Anthropic, etc.)
-- Extracts model, messages, tokens, and cost from requests/responses
-- Emits LLM telemetry events without manual instrumentation
-
-**Example:**
+Wraps `ReqLLM.stream_text/3` with automatic instrumentation:
 
 ```elixir
-# Automatic instrumentation of req_llm
-req = Req.new(base_url: "https://api.openai.com")
-      |> ReqLLM.attach()
-      |> AgentObs.Req.attach()
+{:ok, stream_response} =
+  AgentObs.ReqLLM.trace_stream_text(
+    "anthropic:claude-3-5-sonnet",
+    [%{role: "user", content: "Hello!"}]
+  )
 
-# All LLM calls are now automatically traced
-{:ok, response} = Req.post(req, url: "/chat/completions", json: params)
+# Stream output in real-time
+stream_response.stream
+|> Stream.filter(&(&1.type == :content))
+|> Stream.each(&IO.write(&1.text))
+|> Stream.run()
 ```
+
+This automatically:
+
+- Creates an LLM span with OpenInference attributes
+- Extracts token usage from `ReqLLM.StreamResponse.usage/1`
+- Parses tool calls from streaming chunks
+- Captures finish reason and metadata
+
+#### **AgentObs.ReqLLM.trace_tool_execution/3**
+
+Wraps tool execution with instrumentation:
+
+```elixir
+tool = ReqLLM.Tool.new!(
+  name: "calculator",
+  callback: &calculator/1
+)
+
+tool_call = %{name: "calculator", arguments: %{"expr" => "2 + 2"}}
+
+{:ok, result} = AgentObs.ReqLLM.trace_tool_execution(tool, tool_call)
+```
+
+#### **Complete Agent Loop Example**
+
+```elixir
+defmodule MyAgent do
+  def chat(model, message, tools) do
+    AgentObs.trace_agent("my_agent", %{input: message}, fn ->
+      # Instrumented LLM call
+      {:ok, stream_response} =
+        AgentObs.ReqLLM.trace_stream_text(model,
+          [%{role: "user", content: message}],
+          tools: tools
+        )
+
+      # Extract results
+      text = ReqLLM.StreamResponse.text(stream_response)
+      tool_calls = ReqLLM.StreamResponse.extract_tool_calls(stream_response)
+
+      # Execute tools with instrumentation
+      Enum.each(tool_calls, fn tc ->
+        tool = Enum.find(tools, & &1.name == tc.name)
+        AgentObs.ReqLLM.trace_tool_execution(tool, tc)
+      end)
+
+      {:ok, text, %{
+        tools_used: Enum.map(tool_calls, & &1.name),
+        iterations: if(tool_calls == [], do: 1, else: 2)
+      }}
+    end)
+  end
+end
+```
+
+**Benefits:**
+
+- No manual token extraction
+- No manual tool call parsing
+- Automatic instrumentation across all ReqLLM providers
+- Streaming preserved (non-blocking instrumentation)
+- Compatible with ReqLLM's provider-agnostic API
 
 ## **IV. The Instrumentation Layer: Core Event Schema and Telemetry Integration**
 
@@ -413,8 +492,8 @@ agent function would be instrumented as follows:
 
 Elixir
 
-defmodule MyApp.Agent do def run(prompt) do event\_prefix \= \[:my\_app, :agent,
-:run\] start\_metadata \= %{input: prompt, llm\_model: "gpt-4o"}
+defmodule MyApp.Agent do def run(prompt) do event_prefix \= \[:my_app, :agent,
+:run\] start_metadata \= %{input: prompt, llm_model: "gpt-4o"}
 
     :telemetry.span(event\_prefix, start\_metadata, fn \-\>
       \#... agent logic: call LLM, use tools, etc....
@@ -449,7 +528,7 @@ Phoenix instance and providing the necessary authentication credentials. Arize
 Phoenix accepts traces over the OpenTelemetry Protocol (OTLP) and can be run
 locally or in the cloud.16 It exposes both a gRPC endpoint (typically on port
 4317\) and an HTTP endpoint (typically on port 6006).18 Using the HTTP endpoint
-(:http\_protobuf) is often preferable for its ease of debugging and
+(:http_protobuf) is often preferable for its ease of debugging and
 compatibility with standard web proxies. Authentication for a secured Phoenix
 instance is handled via API keys, which can be either System or User keys.20
 These keys must be sent as a Bearer token in the authorization header of the
@@ -457,13 +536,13 @@ OTLP request.21 The following table and configuration snippet consolidate these
 requirements into a single, production-ready setup. **Table 2: Arize Phoenix
 OTLP Configuration**
 
-| Configuration Key | runtime.exs Value                                     | Environment Variable           | Purpose                                                                                                                |
-| :---------------- | :---------------------------------------------------- | :----------------------------- | :--------------------------------------------------------------------------------------------------------------------- |
-| traces\_exporter  | :otlp                                                 | N/A                            | Specifies that the OpenTelemetry SDK should use the OTLP exporter.15                                                   |
-| otlp\_protocol    | :http\_protobuf                                       | OTEL\_EXPORTER\_OTLP\_PROTOCOL | Sets the transport protocol. :http\_protobuf is recommended for its broad compatibility.8                              |
-| otlp\_endpoint    | System.fetch\_env\!("ARIZE\_PHOENIX\_OTLP\_ENDPOINT") | ARIZE\_PHOENIX\_OTLP\_ENDPOINT | The full URL to the Phoenix OTLP HTTP ingest endpoint (e.g., http://localhost:6006/v1/traces).18                       |
-| otlp\_headers     | \`\`                                                  | OTEL\_EXPORTER\_OTLP\_HEADERS  | The authentication headers required by a secured Phoenix instance, using a System or User API key as a Bearer token.21 |
-| resource          | \[service: \[name: "my\_llm\_agent"\]\]               | OTEL\_RESOURCE\_ATTRIBUTES     | Identifies the service in the Phoenix UI, allowing traces to be filtered and grouped correctly.8                       |
+| Configuration Key | runtime.exs Value                                 | Environment Variable        | Purpose                                                                                                                |
+| :---------------- | :------------------------------------------------ | :-------------------------- | :--------------------------------------------------------------------------------------------------------------------- |
+| traces_exporter   | :otlp                                             | N/A                         | Specifies that the OpenTelemetry SDK should use the OTLP exporter.15                                                   |
+| otlp_protocol     | :http_protobuf                                    | OTEL_EXPORTER_OTLP_PROTOCOL | Sets the transport protocol. :http_protobuf is recommended for its broad compatibility.8                               |
+| otlp_endpoint     | System.fetch_env\!("ARIZE_PHOENIX_OTLP_ENDPOINT") | ARIZE_PHOENIX_OTLP_ENDPOINT | The full URL to the Phoenix OTLP HTTP ingest endpoint (e.g., http://localhost:6006/v1/traces).18                       |
+| otlp_headers      | \`\`                                              | OTEL_EXPORTER_OTLP_HEADERS  | The authentication headers required by a secured Phoenix instance, using a System or User API key as a Bearer token.21 |
+| resource          | \[service: \[name: "my_llm_agent"\]\]             | OTEL_RESOURCE_ATTRIBUTES    | Identifies the service in the Phoenix UI, allowing traces to be filtered and grouped correctly.8                       |
 
 A complete configuration block in config/runtime.exs would look like this:
 
@@ -471,12 +550,12 @@ Elixir
 
 \# In config/runtime.exs import Config
 
-if config\_env() \== :prod do config :opentelemetry, span\_processor: :batch,
-resource: \[service: \[name: "my\_llm\_agent"\]\]
+if config_env() \== :prod do config :opentelemetry, span_processor: :batch,
+resource: \[service: \[name: "my_llm_agent"\]\]
 
-config :opentelemetry\_exporter, otlp\_protocol: :http\_protobuf,
-otlp\_endpoint: System.fetch\_env\!("ARIZE\_PHOENIX\_OTLP\_ENDPOINT"),
-otlp\_headers: end
+config :opentelemetry_exporter, otlp_protocol: :http_protobuf,
+otlp_endpoint: System.fetch_env\!("ARIZE_PHOENIX_OTLP_ENDPOINT"),
+otlp_headers: end
 
 ## **V. Handler Layer: Modular Backend Architecture**
 
@@ -874,14 +953,14 @@ include 25:
   "LLM", "TOOL"). This is a required attribute for all OpenInference spans.
 - input.value / output.value: The primary input and output of the operation,
   typically a string or JSON string.
-- llm.model\_name: The specific model used (e.g., "gpt-4o").
-- llm.input\_messages / llm.output\_messages: For chat-based models, these
+- llm.model_name: The specific model used (e.g., "gpt-4o").
+- llm.input_messages / llm.output_messages: For chat-based models, these
   capture the list of messages exchanged.
-- message.tool\_calls: A list of tool calls requested by the model in its
+- message.tool_calls: A list of tool calls requested by the model in its
   response.
 - tool.name / tool.description: The name and description of a tool that was
   executed.
-- llm.token\_count.prompt / llm.token\_count.completion: The number of tokens
+- llm.token_count.prompt / llm.token_count.completion: The number of tokens
   used.
 - llm.cost.total: The calculated cost of the LLM call in USD.
 
@@ -954,20 +1033,20 @@ AgentObs event metadata and OpenInference attributes.
 
 **Table 3: AgentObs-to-OpenInference Mapping Reference**
 
-| Elixir Metadata (Example)                                                                                                       | OpenInference Attribute                                                    | Value Type              |
-| :------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------- | :---------------------- |
-| %{kind: :agent}                                                                                                                 | openinference.span.kind                                                    | String ("AGENT")        |
-| %{input: "What is Elixir?"}                                                                                                     | input.value                                                                | String                  |
-| %{output: "A dynamic, functional language..."}                                                                                  | output.value                                                               | String                  |
-| %{llm: %{model\_name: "gpt-4o"}}                                                                                                | llm.model\_name                                                            | String ("gpt-4o")       |
-| %{llm: %{input\_messages: \[%{role: :user, content: "Hi"}\]}}                                                                   | llm.input\_messages.0.message.role                                         | String ("user")         |
-|                                                                                                                                 | llm.input\_messages.0.message.content                                      | String ("Hi")           |
-| %{llm: %{output\_messages: \[%{role: :assistant, tool\_calls: \[%{function: %{name: "get\_weather", arguments: "{...}"}}\]}\]}} | llm.output\_messages.0.message.role                                        | String ("assistant")    |
-|                                                                                                                                 | llm.output\_messages.0.message.tool\_calls.0.tool\_call.function.name      | String ("get\_weather") |
-|                                                                                                                                 | llm.output\_messages.0.message.tool\_calls.0.tool\_call.function.arguments | JSON String             |
-| %{llm: %{token\_count: %{prompt: 10, completion: 25}}}                                                                          | llm.token\_count.prompt                                                    | Integer (10)            |
-|                                                                                                                                 | llm.token\_count.completion                                                | Integer (25)            |
-| %{llm: %{cost: %{total: 0.0015}}}                                                                                               | llm.cost.total                                                             | Float (0.0015)          |
+| Elixir Metadata (Example)                                                                                                    | OpenInference Attribute                                                 | Value Type             |
+| :--------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------- | :--------------------- |
+| %{kind: :agent}                                                                                                              | openinference.span.kind                                                 | String ("AGENT")       |
+| %{input: "What is Elixir?"}                                                                                                  | input.value                                                             | String                 |
+| %{output: "A dynamic, functional language..."}                                                                               | output.value                                                            | String                 |
+| %{llm: %{model_name: "gpt-4o"}}                                                                                              | llm.model_name                                                          | String ("gpt-4o")      |
+| %{llm: %{input_messages: \[%{role: :user, content: "Hi"}\]}}                                                                 | llm.input_messages.0.message.role                                       | String ("user")        |
+|                                                                                                                              | llm.input_messages.0.message.content                                    | String ("Hi")          |
+| %{llm: %{output_messages: \[%{role: :assistant, tool_calls: \[%{function: %{name: "get_weather", arguments: "{...}"}}\]}\]}} | llm.output_messages.0.message.role                                      | String ("assistant")   |
+|                                                                                                                              | llm.output_messages.0.message.tool_calls.0.tool_call.function.name      | String ("get_weather") |
+|                                                                                                                              | llm.output_messages.0.message.tool_calls.0.tool_call.function.arguments | JSON String            |
+| %{llm: %{token_count: %{prompt: 10, completion: 25}}}                                                                        | llm.token_count.prompt                                                  | Integer (10)           |
+|                                                                                                                              | llm.token_count.completion                                              | Integer (25)           |
+| %{llm: %{cost: %{total: 0.0015}}}                                                                                            | llm.cost.total                                                          | Float (0.0015)         |
 
 ## **VI. End-to-End Workflow: From Agent Action to Phoenix Trace**
 
@@ -1044,26 +1123,26 @@ end
 
 ### **Tracing the Data Flow**
 
-When MyApp.WeatherAgent.get\_forecast("SF") is called, the following sequence of
+When MyApp.WeatherAgent.get_forecast("SF") is called, the following sequence of
 events occurs:
 
-1. The :telemetry.span/3 call immediately emits a \[:my\_app, :agent, :start\]
-   event with the start\_metadata.
+1. The :telemetry.span/3 call immediately emits a \[:my_app, :agent, :start\]
+   event with the start_metadata.
 2. The AgentObs.Handlers.Phoenix, which is attached to this event, receives it
-   in its handle\_event/4 function.
-3. The handle\_start clause is executed. It calls the
-   AgentObs.Handlers.Phoenix.Translator to convert the start\_metadata into
+   in its handle_event/4 function.
+3. The handle_start clause is executed. It calls the
+   AgentObs.Handlers.Phoenix.Translator to convert the start_metadata into
    flattened OpenInference attributes.
-4. An OpenTelemetry span named "get\_forecast\_for\_SF" is created with these
+4. An OpenTelemetry span named "get_forecast_for_SF" is created with these
    attributes and set as the active span in the current process.
 5. The agent's anonymous function executes, performing the mock LLM and tool
    calls.
-6. The function successfully returns, and :telemetry.span/3 emits a \[:my\_app,
+6. The function successfully returns, and :telemetry.span/3 emits a \[:my_app,
    :agent, :stop\] event. The measurements map contains the duration, and the
-   metadata map contains the stop\_metadata from the function's return value.
+   metadata map contains the stop_metadata from the function's return value.
 7. The AgentObs.Handlers.Phoenix receives the :stop event.
-8. The handle\_stop clause retrieves the active span, translates the
-   stop\_metadata and measurements into more OpenInference attributes, and adds
+8. The handle_stop clause retrieves the active span, translates the
+   stop_metadata and measurements into more OpenInference attributes, and adds
    them to the span.
 9. The span is marked as ended.
 10. The OpenTelemetry Batch Processor receives the completed span and adds it to
@@ -1084,14 +1163,14 @@ key-value attributes, the trace view for the agent's execution will feature
 specialized UI components:
 
 - **Trace Overview:** The span will be clearly labeled with its name,
-  "get\_forecast\_for\_SF", and its kind, "AGENT".
-- **Chat View:** The llm.input\_messages and llm.output\_messages attributes
+  "get_forecast_for_SF", and its kind, "AGENT".
+- **Chat View:** The llm.input_messages and llm.output_messages attributes
   will be rendered as a familiar chat interface, showing the user's prompt and
   the assistant's response.
-- **Tool Call Display:** The tool\_calls within the assistant's message will be
-  highlighted, clearly showing the function name (lookup\_weather\_api) and its
+- **Tool Call Display:** The tool_calls within the assistant's message will be
+  highlighted, clearly showing the function name (lookup_weather_api) and its
   JSON arguments.
-- **Metrics Panel:** Key metrics like llm.token\_count.total (75) and
+- **Metrics Panel:** Key metrics like llm.token_count.total (75) and
   llm.cost.total ($0.00012) will be prominently displayed, enabling immediate
   cost and usage analysis.
 - **Input/Output:** The top-level input.value and output.value will be shown,
@@ -1187,7 +1266,7 @@ is slow to respond or the network is latent, the application process that
 emitted the telemetry event will be blocked, directly increasing the latency of
 the application's core logic. For high-throughput systems, a more advanced,
 fully non-blocking architecture can be implemented. In this model, the
-AgentObs.Handlers.Phoenix's handle\_event/4 function would perform the absolute
+AgentObs.Handlers.Phoenix's handle_event/4 function would perform the absolute
 minimum work possible. Instead of creating and managing the OpenTelemetry span
 directly, it would package the event name, measurements, and metadata into a
 message and send it asynchronously (e.g., via GenServer.cast or by using a
@@ -1465,7 +1544,7 @@ growing ecosystem of AI-powered applications built on Elixir.
 21. Authentication | Arize Phoenix, accessed October 21, 2025,
     [https://arize.com/docs/phoenix/self-hosting/features/authentication](https://arize.com/docs/phoenix/self-hosting/features/authentication)
 22. Arize Phoenix OSS \- LiteLLM, accessed October 21, 2025,
-    [https://docs.litellm.ai/docs/observability/phoenix\_integration](https://docs.litellm.ai/docs/observability/phoenix_integration)
+    [https://docs.litellm.ai/docs/observability/phoenix_integration](https://docs.litellm.ai/docs/observability/phoenix_integration)
 23. telemetry — telemetry v1.3.0 \- HexDocs, accessed October 21, 2025,
     [https://hexdocs.pm/telemetry/telemetry.html](https://hexdocs.pm/telemetry/telemetry.html)
 24. Instrumenting Phoenix with Telemetry Part I: Telemetry Under The Hood | Blog
@@ -1473,6 +1552,6 @@ growing ecosystem of AI-powered applications built on Elixir.
     [https://elixirschool.com/blog/instrumenting-phoenix-with-telemetry-part-one](https://elixirschool.com/blog/instrumenting-phoenix-with-telemetry-part-one)
 25. Semantic Conventions | openinference \- GitHub Pages, accessed October 21,
     2025,
-    [https://arize-ai.github.io/openinference/spec/semantic\_conventions.html](https://arize-ai.github.io/openinference/spec/semantic_conventions.html)
+    [https://arize-ai.github.io/openinference/spec/semantic_conventions.html](https://arize-ai.github.io/openinference/spec/semantic_conventions.html)
 26. Openinference Semantic Conventions | Arize Docs, accessed October 21, 2025,
     [https://arize.com/docs/ax/observe/tracing/tracing-concepts/openinference-semantic-conventions](https://arize.com/docs/ax/observe/tracing/tracing-concepts/openinference-semantic-conventions)

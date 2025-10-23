@@ -195,13 +195,13 @@ Search for:
 
 ```
 ┌─────────────────┐
-│  Demo.Agent     │  ← Instrumented with AgentObs
+│  Demo.Agent     │  ← Instrumented with AgentObs.ReqLLM helpers
 │  (GenServer)    │
 └────────┬────────┘
          │
          ├─► AgentObs.trace_agent/3
-         ├─► AgentObs.trace_llm/3
-         └─► AgentObs.trace_tool/3
+         ├─► AgentObs.ReqLLM.trace_stream_text/3
+         └─► AgentObs.ReqLLM.trace_tool_execution/3
                 │
                 ├─► Phoenix Handler → OpenInference → Phoenix UI
                 └─► Generic Handler → OTel → Jaeger UI
@@ -221,7 +221,7 @@ demo/
 │   ├── demo.ex             # Main module
 │   ├── demo/
 │   │   ├── application.ex  # OTP application
-│   │   ├── agent.ex        # Instrumented agent
+│   │   ├── agent.ex        # Instrumented agent (uses AgentObs.ReqLLM helpers)
 │   │   └── scenarios.ex    # Demo scenarios
 └── scripts/
     ├── start.sh            # Start all services

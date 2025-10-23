@@ -18,11 +18,13 @@ AgentObs provides a simple, powerful, and idiomatic interface for instrumenting 
 AgentObs uses a two-layer architecture:
 
 **Layer 1: Core Telemetry API (Backend-Agnostic)**
+
 - Leverages Elixir's native `:telemetry` ecosystem
 - Provides high-level helpers for instrumenting agent operations
 - Defines standardized event schemas
 
 **Layer 2: Pluggable Backend Handlers**
+
 - Phoenix handler with OpenInference semantic conventions
 - Generic OpenTelemetry handler
 - Extensible to other platforms (Langfuse, Datadog, etc.)
@@ -110,6 +112,7 @@ docker run -p 6006:6006 -p 4317:4317 arizephoenix/phoenix:latest
 ```
 
 Navigate to `http://localhost:6006` to view your traces with:
+
 - Rich chat message visualization
 - Token usage and cost tracking
 - Tool call inspection
@@ -147,6 +150,40 @@ config :agent_obs,
   ]
 ```
 
+## ReqLLM Integration (Optional)
+
+For applications using [ReqLLM](https://hexdocs.pm/req_llm), AgentObs provides high-level helpers that automatically instrument streaming LLM calls:
+
+```elixir
+# Add to your deps
+{:req_llm, "~> 1.0.0-rc.7"}
+
+# Instrumented streaming
+{:ok, stream_response} =
+  AgentObs.ReqLLM.trace_stream_text(
+    "anthropic:claude-3-5-sonnet",
+    [%{role: "user", content: "Hello!"}]
+  )
+
+# Stream output in real-time (instrumentation happens automatically)
+stream_response.stream
+|> Stream.filter(&(&1.type == :content))
+|> Stream.each(&IO.write(&1.text))
+|> Stream.run()
+
+# Token usage automatically extracted
+tokens = ReqLLM.StreamResponse.usage(stream_response)
+```
+
+**Benefits:**
+
+- No manual token extraction
+- No manual tool call parsing
+- Works across all ReqLLM providers (Anthropic, OpenAI, Google, etc.)
+- Streaming preserved (non-blocking instrumentation)
+
+See the [demo agent](demo/lib/demo/agent.ex) for a complete example.
+
 ## API Reference
 
 ### High-Level Instrumentation
@@ -156,12 +193,63 @@ config :agent_obs,
 - **`trace_llm/3`** - Instruments LLM API calls
 - **`trace_prompt/3`** - Instruments prompt template rendering
 
+### ReqLLM Helpers (Optional)
+
+- **`AgentObs.ReqLLM.trace_stream_text/3`** - Instrumented ReqLLM streaming
+- **`AgentObs.ReqLLM.trace_tool_execution/3`** - Instrumented tool execution
+- **`AgentObs.ReqLLM.collect_stream/1`** - Collect stream with metadata
+
 ### Low-Level API
 
 - **`emit/2`** - Emits custom telemetry events
 - **`configure/1`** - Runtime configuration updates
 
 See the [full documentation](https://hexdocs.pm/agent_obs) for detailed API reference and examples.
+
+## Testing
+
+### Running Tests
+
+```bash
+# Run all tests (unit tests only, 99 tests)
+mix test
+
+# Include integration tests (requires API keys)
+mix test --include integration
+
+# Run only integration tests
+mix test --only integration
+```
+
+### ReqLLM Integration Tests
+
+The ReqLLM module includes 15 tests split into two categories:
+
+**Unit Tests (12 tests)** - Run by default, use mocked streams:
+- Stream text collection and aggregation
+- Tool call extraction and argument parsing
+- Token usage extraction
+- Error handling (malformed JSON, missing data)
+- Edge cases (nil values, partial data, multiple fragments)
+
+**Integration Tests (3 tests)** - Excluded by default, require real LLM API calls:
+- Real LLM streaming with telemetry verification
+- Real tool execution with instrumentation
+- Full agent loop with streaming and tools
+
+To run integration tests, set one of these environment variables:
+
+```bash
+export ANTHROPIC_API_KEY=your_key  # Uses claude-3-5-haiku-latest
+# OR
+export OPENAI_API_KEY=your_key     # Uses gpt-4o-mini
+# OR
+export GOOGLE_API_KEY=your_key     # Uses gemini-2.0-flash-exp
+
+mix test --include integration
+```
+
+If no API key is configured, integration tests gracefully skip without failing.
 
 ## Development
 
@@ -212,6 +300,7 @@ mix precommit
 ```
 
 This will:
+
 1. Format your code
 2. Run all tests
 3. Run Credo in strict mode
@@ -219,6 +308,7 @@ This will:
 ### CI Pipeline
 
 The `mix ci` command is designed for continuous integration and will:
+
 1. Check that code is properly formatted (fails if not)
 2. Run all tests
 3. Run Credo in strict mode
@@ -249,4 +339,3 @@ limitations under the License.
 - [Arize Phoenix Documentation](https://arize.com/docs/phoenix/)
 - [OpenTelemetry Elixir](https://hexdocs.pm/opentelemetry/)
 - [Elixir Telemetry](https://hexdocs.pm/telemetry/)
-

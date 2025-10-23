@@ -41,6 +41,9 @@ defmodule AgentObs.MixProject do
       {:opentelemetry_exporter, "~> 1.6"},
       {:jason, "~> 1.2"},
 
+      # Optional dependencies for integrations
+      {:req_llm, "~> 1.0.0-rc.7", optional: true},
+
       # Development and testing dependencies
       {:ex_doc, "~> 0.28", only: :dev, runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
