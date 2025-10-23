@@ -2,7 +2,7 @@ defmodule AgentObs.MixProject do
   use Mix.Project
 
   @version "0.1.0"
-  @source_url "https://github.com/your-org/agent_obs"
+  @source_url "https://github.com/lostbean/agent_obs"
 
   def project do
     [
@@ -74,13 +74,14 @@ defmodule AgentObs.MixProject do
 
   defp docs do
     [
-      main: "readme",
+      main: "home",
       name: "AgentObs",
       source_url: @source_url,
       source_ref: "v#{@version}",
       homepage_url: @source_url,
       formatters: ["html"],
       extras: [
+        "home.md",
         "README.md",
         "CHANGELOG.md",
         "guides/getting_started.md",

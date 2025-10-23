@@ -330,7 +330,7 @@ Store sensitive configuration in environment variables:
 # Good
 otlp_endpoint: System.fetch_env!("ARIZE_PHOENIX_OTLP_ENDPOINT")
 
-# Bad
+# Bad - hardcoded and includes /v1/traces (which gets auto-appended)
 otlp_endpoint: "https://api.arize.com/v1/traces"
 ```
 

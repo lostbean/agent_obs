@@ -1,5 +1,9 @@
 # AgentObs
 
+[![Hex.pm](https://img.shields.io/hexpm/v/agent_obs.svg)](https://hex.pm/packages/agent_obs)
+[![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/agent_obs)
+[![CI](https://github.com/lostbean/agent_obs/workflows/CI/badge.svg)](https://github.com/lostbean/agent_obs/actions)
+
 **An Elixir library for LLM agent observability.**
 
 AgentObs provides a simple, powerful, and idiomatic interface for instrumenting
@@ -10,6 +14,8 @@ observability backends through a pluggable handler architecture.
 
 - 🎯 **High-level instrumentation helpers** - `trace_agent/3`, `trace_tool/3`,
   `trace_llm/3`, `trace_prompt/3`
+- 🤖 **ReqLLM integration helpers (optional)** - Automatic instrumentation for
+  ReqLLM with token tracking and streaming support
 - 🔌 **Pluggable backend architecture** - Support for multiple observability
   platforms
 - 🌟 **OpenInference support** - Full semantic conventions for Arize Phoenix
@@ -62,8 +68,9 @@ config :opentelemetry,
 
 config :opentelemetry_exporter,
   otlp_protocol: :http_protobuf,
-  otlp_endpoint: System.get_env("ARIZE_PHOENIX_OTLP_ENDPOINT", "http://localhost:6006/v1/traces"),
+  otlp_endpoint: System.get_env("ARIZE_PHOENIX_OTLP_ENDPOINT", "http://localhost:6006"),
   otlp_headers: []
+# Note: /v1/traces is automatically appended by the exporter
 ```
 
 ### 2. Instrument Your Agent
