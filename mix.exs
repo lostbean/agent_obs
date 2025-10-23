@@ -63,7 +63,7 @@ defmodule AgentObs.MixProject do
     [
       name: "agent_obs",
       files: ~w(lib .formatter.exs mix.exs README.md LICENSE CHANGELOG.md),
-      licenses: ["Apache-2.0"],
+      licenses: ["MIT"],
       links: %{
         "GitHub" => @source_url,
         "Docs" => "https://hexdocs.pm/agent_obs"

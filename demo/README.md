@@ -381,4 +381,4 @@ Found an issue or have a suggestion? Please open an issue in the main repository
 
 ## 📄 License
 
-This demo is part of the AgentObs project and uses the same Apache 2.0 license.
+This demo is part of the AgentObs project and uses the same MIT license.

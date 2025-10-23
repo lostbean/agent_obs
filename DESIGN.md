@@ -132,7 +132,7 @@ developers.8 **Table 1: Core Library Dependencies**
 Following best practices for library development, the mix.exs file is also
 populated with descriptive metadata, including a description, package
 configuration specifying the files to be published, maintainer information, and
-a license (e.g., Apache 2.0, same as Elixir itself).5 The inclusion of ex_doc
+a license (MIT, a permissive open-source license).5 The inclusion of ex_doc
 in the dependencies underscores a commitment to providing comprehensive and
 accessible documentation, a hallmark of a mature Elixir project.7
 
