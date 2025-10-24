@@ -82,11 +82,14 @@ defmodule Demo.Agent do
           {:ok, final_history, final_response, tools_used} ->
             IO.write("\n")
 
+            # Calculate iterations: 1 if no tools, otherwise count tool usage rounds + 1
+            iterations = if tools_used == [], do: 1, else: length(Enum.uniq(tools_used)) + 1
+
             {:ok, final_response,
              %{
                history: final_history,
                tools_used: tools_used,
-               iterations: if(tools_used == [], do: 1, else: 2)
+               iterations: iterations
              }}
 
           {:error, error} ->
@@ -110,50 +113,85 @@ defmodule Demo.Agent do
     # Use AgentObs.ReqLLM helper for automatic instrumentation
     case AgentObs.ReqLLM.trace_stream_text(model, history.messages, tools: tools) do
       {:ok, stream_response} ->
-        # Stream chunks to console in real-time
-        chunks =
-          stream_response.stream
-          |> Enum.map(fn chunk ->
-            IO.write(chunk.text)
-            chunk
-          end)
-
-        # Extract data from the streamed response
-        text = chunks |> Enum.filter(&(&1.type == :content)) |> Enum.map_join("", & &1.text)
-        tool_calls = ReqLLM.StreamResponse.extract_tool_calls(stream_response)
-
-        # Handle response based on whether tools were called
-        if tool_calls == [] do
-          final_history = Context.append(history, Context.assistant(text))
-          {:ok, final_history, text, []}
-        else
-          # Process tool calls
-          assistant_message = Context.assistant(text, tool_calls: tool_calls)
-          history_with_tool_call = Context.append(history, assistant_message)
-
-          IO.write("\n")
-
-          # Track which tools were used
-          tools_used = Enum.map(tool_calls, & &1.name)
-
-          # Execute tools and show results
-          history_with_results =
-            Enum.reduce(tool_calls, history_with_tool_call, fn tool_call, ctx ->
-              execute_instrumented_tool(tool_call, tools, ctx)
-            end)
-
-          # Second LLM call with tool results
-          case stream_final_response(model, history_with_results) do
-            {:ok, final_history, final_text} ->
-              {:ok, final_history, final_text, tools_used}
-
-            {:error, error} ->
-              {:error, error}
-          end
-        end
+        # Start iterative tool calling loop (iteration 1)
+        handle_llm_response(stream_response, history, tools, model, 1)
 
       {:error, error} ->
         {:error, error}
+    end
+  end
+
+  defp handle_llm_response(stream_response, history, tools, model, iteration) do
+    # IMPORTANT: Collect chunks ONCE to avoid double-consuming the stream
+    # Stream to console while collecting
+    chunks =
+      stream_response.stream
+      |> Enum.map(fn chunk ->
+        IO.write(chunk.text)
+        chunk
+      end)
+
+    # Extract text and tool calls from the SAME chunks list
+    text = chunks |> Enum.filter(&(&1.type == :content)) |> Enum.map_join("", & &1.text)
+    tool_calls = ReqLLM.StreamResponse.extract_tool_calls(stream_response)
+
+    # Maximum iterations to prevent infinite loops
+    max_iterations = 10
+
+    # Handle response based on whether tools were called
+    if tool_calls == [] do
+      # No tool calls - task complete
+      final_history = Context.append(history, Context.assistant(text))
+      {:ok, final_history, text, []}
+    else
+      # Tool calls present - execute them
+      IO.write("\n")
+
+      # Process tool calls
+      assistant_message = Context.assistant(text, tool_calls: tool_calls)
+      history_with_tool_call = Context.append(history, assistant_message)
+
+      # Track which tools were used (for output metadata)
+      tools_used = Enum.map(tool_calls, & &1.name)
+
+      # Execute tools and show results
+      history_with_results =
+        Enum.reduce(tool_calls, history_with_tool_call, fn tool_call, ctx ->
+          execute_instrumented_tool(tool_call, tools, ctx)
+        end)
+
+      # Check if we've reached max iterations
+      if iteration >= max_iterations do
+        IO.write("⚠️  Reached max iterations (#{max_iterations}), stopping\n")
+        final_history = Context.append(history_with_results, Context.assistant(text))
+        {:ok, final_history, text, tools_used}
+      else
+        # Make another LLM call with tool results
+        # IMPORTANT: Must pass tools to subsequent calls so LLM knows they're available!
+        IO.write("\n")
+
+        case AgentObs.ReqLLM.trace_stream_text(model, history_with_results.messages, tools: tools) do
+          {:ok, next_stream_response} ->
+            # Recursively handle response (may contain more tool calls)
+            case handle_llm_response(
+                   next_stream_response,
+                   history_with_results,
+                   tools,
+                   model,
+                   iteration + 1
+                 ) do
+              {:ok, final_history, final_text, more_tools} ->
+                # Merge tools used across iterations
+                {:ok, final_history, final_text, tools_used ++ more_tools}
+
+              {:error, error} ->
+                {:error, error}
+            end
+
+          {:error, error} ->
+            {:error, error}
+        end
+      end
     end
   end
 
@@ -194,30 +232,6 @@ defmodule Demo.Agent do
     else
       IO.write("❌ Tool #{tool_call.name} not found\n")
       context
-    end
-  end
-
-  defp stream_final_response(model, history) do
-    # Use AgentObs.ReqLLM helper for automatic instrumentation
-    case AgentObs.ReqLLM.trace_stream_text(model, history.messages) do
-      {:ok, stream_response} ->
-        IO.write("\n")
-
-        # Stream final response to console in real-time
-        final_text =
-          stream_response.stream
-          |> Enum.filter(&(&1.type == :content))
-          |> Enum.map(fn chunk ->
-            IO.write(chunk.text)
-            chunk.text
-          end)
-          |> Enum.join("")
-
-        final_history = Context.append(history, Context.assistant(final_text))
-        {:ok, final_history, final_text}
-
-      {:error, error} ->
-        {:error, error}
     end
   end
 
