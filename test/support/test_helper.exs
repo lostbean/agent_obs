@@ -1,4 +1,4 @@
-defmodule AgentObs.TestHelpers do
+defmodule AgentObs.TestHelper do
   @moduledoc """
   Test helpers for AgentObs test suite.
 

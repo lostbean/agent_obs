@@ -37,9 +37,11 @@
           buildInputs =
             with pkgs;
             [
-              unstable.elixir
-              unstable.elixir-ls
-              unstable.erlang
+              unstable.beamMinimal28Packages.elixir_1_19
+              unstable.beamMinimal28Packages.erlang
+              unstable.beamMinimal28Packages.rebar3
+              unstable.beamMinimal28Packages.elixir-ls
+              # expert-lsp
               unstable.livebook
               rebar3
               nodePackages.prettier

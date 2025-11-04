@@ -17,11 +17,7 @@ defmodule AgentObs.MixProject do
       dialyzer: [
         plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
       ],
-      aliases: aliases(),
-      preferred_cli_env: [
-        precommit: :test,
-        ci: :test
-      ]
+      aliases: aliases()
     ]
   end
 
@@ -132,6 +128,10 @@ defmodule AgentObs.MixProject do
   end
 
   defp before_closing_body_tag(_), do: ""
+
+  def cli do
+    [preferred_envs: [precommit: :test, ci: :test]]
+  end
 
   defp aliases do
     [
