@@ -192,7 +192,7 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
       |> Map.put("llm.input_messages.#{idx}.message.role", to_string(msg.role))
       |> maybe_add(
         "llm.input_messages.#{idx}.message.content",
-        get_message_field(msg, :content) && to_string(get_message_field(msg, :content))
+        to_json_safe(get_message_field(msg, :content))
       )
       |> maybe_add_tool_calls("llm.input_messages.#{idx}", get_message_field(msg, :tool_calls))
     end)
@@ -208,7 +208,7 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
       |> Map.put("llm.output_messages.#{idx}.message.role", to_string(msg.role))
       |> maybe_add(
         "llm.output_messages.#{idx}.message.content",
-        get_message_field(msg, :content) && to_string(get_message_field(msg, :content))
+        to_json_safe(get_message_field(msg, :content))
       )
       |> maybe_add_tool_calls("llm.output_messages.#{idx}", get_message_field(msg, :tool_calls))
     end)

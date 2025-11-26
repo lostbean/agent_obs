@@ -168,6 +168,27 @@ defmodule AgentObs.Handlers.Phoenix.TranslatorTest do
       assert String.contains?(args_json, "city")
       assert String.contains?(args_json, "SF")
     end
+
+    test "handles input messages with map content without crashing" do
+      # Test that map content in input messages is handled correctly
+      # This mirrors the fix for output messages with structured objects
+      metadata = %{
+        model: "gpt-4o",
+        input_messages: [
+          %{role: "user", content: "Extract the entity"},
+          %{role: "assistant", content: %{"name" => "Entity", "type" => "test"}}
+        ]
+      }
+
+      # Should not raise Protocol.UndefinedError
+      attributes = Translator.from_start_metadata(:llm, metadata)
+
+      assert attributes["llm.input_messages.0.message.content"] == "Extract the entity"
+      # Map content should be JSON-encoded
+      content = attributes["llm.input_messages.1.message.content"]
+      assert is_binary(content)
+      assert String.contains?(content, "Entity")
+    end
   end
 
   describe "from_stop_metadata/3 for agent events" do
@@ -294,6 +315,63 @@ defmodule AgentObs.Handlers.Phoenix.TranslatorTest do
       # Should not crash, just not include token attributes
       refute Map.has_key?(attrs, "llm.token_count.prompt")
       refute Map.has_key?(attrs, "gen_ai.usage.input_tokens")
+    end
+
+    test "handles structured object output (map content) without crashing" do
+      # Regression test for Protocol.UndefinedError when trace_generate_object/4
+      # returns a map as the message content
+      metadata = %{
+        output_messages: [
+          %{role: "assistant", content: %{"name" => "Test Entity", "value" => 42}}
+        ],
+        tokens: %{prompt: 10, completion: 20, total: 30},
+        object: %{"name" => "Test Entity", "value" => 42}
+      }
+
+      measurements = %{duration: 1_000_000_000}
+
+      # Should not raise Protocol.UndefinedError
+      attrs = Translator.from_stop_metadata(:llm, metadata, measurements)
+
+      assert attrs["llm.output_messages.0.message.role"] == "assistant"
+      # Content should be JSON-encoded
+      content = attrs["llm.output_messages.0.message.content"]
+      assert is_binary(content)
+      assert String.contains?(content, "Test Entity")
+      assert String.contains?(content, "42")
+    end
+
+    test "handles complex nested object output" do
+      # Test with a more complex nested structure like the bug report shows
+      metadata = %{
+        output_messages: [
+          %{
+            role: "assistant",
+            content: %{
+              "entities" => [
+                %{
+                  "confidence" => 0.95,
+                  "description" => "A customer record",
+                  "name" => "Customer"
+                },
+                %{"confidence" => 0.87, "description" => "An order record", "name" => "Order"}
+              ],
+              "metadata" => %{"version" => "1.0", "extracted_at" => "2025-11-26"}
+            }
+          }
+        ]
+      }
+
+      measurements = %{}
+
+      attrs = Translator.from_stop_metadata(:llm, metadata, measurements)
+
+      content = attrs["llm.output_messages.0.message.content"]
+      assert is_binary(content)
+      # Verify it's valid JSON
+      assert {:ok, decoded} = Jason.decode(content)
+      assert is_map(decoded)
+      assert is_list(decoded["entities"])
     end
   end
 
