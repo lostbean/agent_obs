@@ -38,7 +38,7 @@ defmodule AgentObs.MixProject do
       {:jason, "~> 1.2"},
 
       # Optional dependencies for integrations
-      {:req_llm, "~> 1.0.0", optional: true},
+      {:req_llm, "~> 1.0", optional: true},
 
       # Development and testing dependencies
       {:ex_doc, "~> 0.28", only: :dev, runtime: false},
