@@ -1,6 +1,8 @@
 defmodule AgentObs.ReqLLMTest do
   use ExUnit.Case, async: true
 
+  alias ReqLLM.StreamResponse.MetadataHandle
+
   @moduletag :capture_log
 
   @req_llm_available Code.ensure_loaded?(ReqLLM)
@@ -26,7 +28,7 @@ defmodule AgentObs.ReqLLMTest do
           ])
 
         {:ok, metadata_handle} =
-          ReqLLM.StreamResponse.MetadataHandle.start_link(fn ->
+          MetadataHandle.start_link(fn ->
             %{
               usage: %{input_tokens: 5, output_tokens: 3},
               finish_reason: "stop"
@@ -74,7 +76,7 @@ defmodule AgentObs.ReqLLMTest do
           ])
 
         {:ok, metadata_handle} =
-          ReqLLM.StreamResponse.MetadataHandle.start_link(fn ->
+          MetadataHandle.start_link(fn ->
             %{usage: %{input_tokens: 10, output_tokens: 20}}
           end)
 
@@ -100,7 +102,7 @@ defmodule AgentObs.ReqLLMTest do
 
       if @req_llm_available do
         stream = create_mock_stream([])
-        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        {:ok, metadata_handle} = MetadataHandle.start_link(fn -> %{} end)
         stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
@@ -140,7 +142,7 @@ defmodule AgentObs.ReqLLMTest do
             }
           ])
 
-        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        {:ok, metadata_handle} = MetadataHandle.start_link(fn -> %{} end)
         stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
@@ -173,7 +175,7 @@ defmodule AgentObs.ReqLLMTest do
             }
           ])
 
-        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        {:ok, metadata_handle} = MetadataHandle.start_link(fn -> %{} end)
         stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
@@ -192,7 +194,7 @@ defmodule AgentObs.ReqLLMTest do
         stream = create_mock_stream([%{type: :content, text: "Hi"}])
 
         # Metadata with no usage
-        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        {:ok, metadata_handle} = MetadataHandle.start_link(fn -> %{} end)
         stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
@@ -216,7 +218,7 @@ defmodule AgentObs.ReqLLMTest do
             }
           ])
 
-        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        {:ok, metadata_handle} = MetadataHandle.start_link(fn -> %{} end)
         stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
@@ -241,7 +243,7 @@ defmodule AgentObs.ReqLLMTest do
             }
           ])
 
-        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        {:ok, metadata_handle} = MetadataHandle.start_link(fn -> %{} end)
         stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
@@ -276,7 +278,7 @@ defmodule AgentObs.ReqLLMTest do
             }
           ])
 
-        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        {:ok, metadata_handle} = MetadataHandle.start_link(fn -> %{} end)
         stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
@@ -294,7 +296,7 @@ defmodule AgentObs.ReqLLMTest do
 
         # Usage with only input_tokens
         {:ok, metadata_handle} =
-          ReqLLM.StreamResponse.MetadataHandle.start_link(fn ->
+          MetadataHandle.start_link(fn ->
             %{usage: %{input_tokens: 50}}
           end)
 
@@ -321,7 +323,7 @@ defmodule AgentObs.ReqLLMTest do
             %{type: :content, text: "!"}
           ])
 
-        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        {:ok, metadata_handle} = MetadataHandle.start_link(fn -> %{} end)
         stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
@@ -341,7 +343,7 @@ defmodule AgentObs.ReqLLMTest do
         stream1 = create_mock_stream([%{type: :content, text: "Test"}])
 
         {:ok, metadata_handle1} =
-          ReqLLM.StreamResponse.MetadataHandle.start_link(fn ->
+          MetadataHandle.start_link(fn ->
             %{usage: %{input_tokens: 100, output_tokens: 50}}
           end)
 
@@ -353,7 +355,7 @@ defmodule AgentObs.ReqLLMTest do
         stream2 = create_mock_stream([%{type: :content, text: "Test"}])
 
         {:ok, metadata_handle2} =
-          ReqLLM.StreamResponse.MetadataHandle.start_link(fn ->
+          MetadataHandle.start_link(fn ->
             %{usage: %{input_tokens: nil, output_tokens: nil}}
           end)
 
@@ -363,7 +365,7 @@ defmodule AgentObs.ReqLLMTest do
 
         # Test with missing usage entirely
         stream3 = create_mock_stream([%{type: :content, text: "Test"}])
-        {:ok, metadata_handle3} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        {:ok, metadata_handle3} = MetadataHandle.start_link(fn -> %{} end)
         stream_response = %{stream: stream3, metadata_handle: metadata_handle3}
         result = AgentObs.ReqLLM.collect_stream(stream_response)
         assert result.tokens == %{prompt: 0, completion: 0, total: 0}
@@ -445,7 +447,7 @@ defmodule AgentObs.ReqLLMTest do
         stream = create_mock_stream([])
 
         {:ok, metadata_handle} =
-          ReqLLM.StreamResponse.MetadataHandle.start_link(fn ->
+          MetadataHandle.start_link(fn ->
             %{
               usage: %{input_tokens: 10, output_tokens: 5},
               finish_reason: "stop",
@@ -470,7 +472,7 @@ defmodule AgentObs.ReqLLMTest do
         stream = create_mock_stream([])
 
         {:ok, metadata_handle} =
-          ReqLLM.StreamResponse.MetadataHandle.start_link(fn ->
+          MetadataHandle.start_link(fn ->
             %{usage: %{input_tokens: 5, output_tokens: 3}}
           end)
 
@@ -489,7 +491,7 @@ defmodule AgentObs.ReqLLMTest do
 
       if @req_llm_available do
         stream = create_mock_stream([])
-        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        {:ok, metadata_handle} = MetadataHandle.start_link(fn -> %{} end)
         stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream_object(stream_response)

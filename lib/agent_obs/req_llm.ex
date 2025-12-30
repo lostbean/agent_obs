@@ -176,6 +176,8 @@ defmodule AgentObs.ReqLLM do
   - `AgentObs.trace_tool/3` - Low-level tool instrumentation
   """
 
+  alias ReqLLM.StreamResponse.MetadataHandle
+
   @doc """
   Wraps `ReqLLM.generate_text/3` with automatic AgentObs instrumentation.
 
@@ -508,7 +510,7 @@ defmodule AgentObs.ReqLLM do
 
             # Wait for metadata collection
             metadata =
-              ReqLLM.StreamResponse.MetadataHandle.await(stream_response.metadata_handle)
+              MetadataHandle.await(stream_response.metadata_handle)
 
             # Extract token usage from metadata
             tokens = extract_tokens_from_metadata(metadata)
@@ -527,7 +529,7 @@ defmodule AgentObs.ReqLLM do
             # Create a new metadata handle that returns the already-collected metadata
             # This allows collect_stream to work on the returned stream_response
             {:ok, new_metadata_handle} =
-              ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> metadata end)
+              MetadataHandle.start_link(fn -> metadata end)
 
             # Return stream_response with replayed stream and new metadata handle
             stream_response_with_replay = %{
@@ -625,7 +627,7 @@ defmodule AgentObs.ReqLLM do
 
               # Wait for metadata collection
               metadata =
-                ReqLLM.StreamResponse.MetadataHandle.await(stream_response.metadata_handle)
+                MetadataHandle.await(stream_response.metadata_handle)
 
               # Extract token usage from metadata
               tokens = extract_tokens_from_metadata(metadata)
@@ -638,7 +640,7 @@ defmodule AgentObs.ReqLLM do
               # Create a new metadata handle that returns the already-collected metadata
               # This allows collect_stream_object to work on the returned stream_response
               {:ok, new_metadata_handle} =
-                ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> metadata end)
+                MetadataHandle.start_link(fn -> metadata end)
 
               # Return stream_response with replayed stream and new metadata handle
               stream_response_with_replay = %{
@@ -763,7 +765,7 @@ defmodule AgentObs.ReqLLM do
     chunks = Enum.to_list(stream_response.stream)
 
     # Get metadata
-    metadata = ReqLLM.StreamResponse.MetadataHandle.await(stream_response.metadata_handle)
+    metadata = MetadataHandle.await(stream_response.metadata_handle)
 
     # Extract information
     text = build_text_from_chunks(chunks)
@@ -809,7 +811,7 @@ defmodule AgentObs.ReqLLM do
     _chunks = Enum.to_list(stream_response.stream)
 
     # Get metadata
-    metadata = ReqLLM.StreamResponse.MetadataHandle.await(stream_response.metadata_handle)
+    metadata = MetadataHandle.await(stream_response.metadata_handle)
 
     # Extract information
     tokens = extract_tokens_from_metadata(metadata)
