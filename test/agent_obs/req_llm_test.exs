@@ -696,7 +696,7 @@ defmodule AgentObs.ReqLLMTest do
           assert llm_stops >= 1
 
           # If tools were used, verify tool events
-          if length(tool_results) > 0 do
+          if tool_results != [] do
             tool_starts =
               Enum.count(events, fn {event, _, _} -> event == [:agent_obs, :tool, :start] end)
 

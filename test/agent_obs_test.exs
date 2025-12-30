@@ -41,7 +41,7 @@ defmodule AgentObsTest do
       assert exception.__struct__ == RuntimeError
       assert Exception.message(exception) == "Test error"
       assert is_list(stacktrace)
-      assert length(stacktrace) > 0
+      assert stacktrace != []
     end
 
     test "captures throw with stacktraces" do
