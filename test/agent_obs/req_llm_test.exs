@@ -25,15 +25,15 @@ defmodule AgentObs.ReqLLMTest do
             %{type: :content, text: "third"}
           ])
 
-        metadata_task =
-          Task.async(fn ->
+        {:ok, metadata_handle} =
+          ReqLLM.StreamResponse.MetadataHandle.start_link(fn ->
             %{
               usage: %{input_tokens: 5, output_tokens: 3},
               finish_reason: "stop"
             }
           end)
 
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
 
@@ -73,9 +73,12 @@ defmodule AgentObs.ReqLLMTest do
             }
           ])
 
-        metadata_task = Task.async(fn -> %{usage: %{input_tokens: 10, output_tokens: 20}} end)
+        {:ok, metadata_handle} =
+          ReqLLM.StreamResponse.MetadataHandle.start_link(fn ->
+            %{usage: %{input_tokens: 10, output_tokens: 20}}
+          end)
 
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
 
@@ -97,8 +100,8 @@ defmodule AgentObs.ReqLLMTest do
 
       if @req_llm_available do
         stream = create_mock_stream([])
-        metadata_task = Task.async(fn -> %{} end)
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
 
@@ -137,8 +140,8 @@ defmodule AgentObs.ReqLLMTest do
             }
           ])
 
-        metadata_task = Task.async(fn -> %{} end)
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
 
@@ -170,8 +173,8 @@ defmodule AgentObs.ReqLLMTest do
             }
           ])
 
-        metadata_task = Task.async(fn -> %{} end)
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
 
@@ -189,8 +192,8 @@ defmodule AgentObs.ReqLLMTest do
         stream = create_mock_stream([%{type: :content, text: "Hi"}])
 
         # Metadata with no usage
-        metadata_task = Task.async(fn -> %{} end)
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
 
@@ -213,8 +216,8 @@ defmodule AgentObs.ReqLLMTest do
             }
           ])
 
-        metadata_task = Task.async(fn -> %{} end)
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
 
@@ -238,8 +241,8 @@ defmodule AgentObs.ReqLLMTest do
             }
           ])
 
-        metadata_task = Task.async(fn -> %{} end)
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
 
@@ -273,8 +276,8 @@ defmodule AgentObs.ReqLLMTest do
             }
           ])
 
-        metadata_task = Task.async(fn -> %{} end)
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
 
@@ -290,8 +293,12 @@ defmodule AgentObs.ReqLLMTest do
         stream = create_mock_stream([%{type: :content, text: "Test"}])
 
         # Usage with only input_tokens
-        metadata_task = Task.async(fn -> %{usage: %{input_tokens: 50}} end)
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        {:ok, metadata_handle} =
+          ReqLLM.StreamResponse.MetadataHandle.start_link(fn ->
+            %{usage: %{input_tokens: 50}}
+          end)
+
+        stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
 
@@ -314,8 +321,8 @@ defmodule AgentObs.ReqLLMTest do
             %{type: :content, text: "!"}
           ])
 
-        metadata_task = Task.async(fn -> %{} end)
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream(stream_response)
 
@@ -330,25 +337,34 @@ defmodule AgentObs.ReqLLMTest do
       unless @req_llm_available, do: assert(true)
 
       if @req_llm_available do
-        stream = create_mock_stream([%{type: :content, text: "Test"}])
-
         # Test with proper usage
-        metadata_task =
-          Task.async(fn -> %{usage: %{input_tokens: 100, output_tokens: 50}} end)
+        stream1 = create_mock_stream([%{type: :content, text: "Test"}])
 
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        {:ok, metadata_handle1} =
+          ReqLLM.StreamResponse.MetadataHandle.start_link(fn ->
+            %{usage: %{input_tokens: 100, output_tokens: 50}}
+          end)
+
+        stream_response = %{stream: stream1, metadata_handle: metadata_handle1}
         result = AgentObs.ReqLLM.collect_stream(stream_response)
         assert result.tokens == %{prompt: 100, completion: 50, total: 150}
 
         # Test with nil values
-        metadata_task = Task.async(fn -> %{usage: %{input_tokens: nil, output_tokens: nil}} end)
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        stream2 = create_mock_stream([%{type: :content, text: "Test"}])
+
+        {:ok, metadata_handle2} =
+          ReqLLM.StreamResponse.MetadataHandle.start_link(fn ->
+            %{usage: %{input_tokens: nil, output_tokens: nil}}
+          end)
+
+        stream_response = %{stream: stream2, metadata_handle: metadata_handle2}
         result = AgentObs.ReqLLM.collect_stream(stream_response)
         assert result.tokens == %{prompt: 0, completion: 0, total: 0}
 
         # Test with missing usage entirely
-        metadata_task = Task.async(fn -> %{} end)
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        stream3 = create_mock_stream([%{type: :content, text: "Test"}])
+        {:ok, metadata_handle3} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        stream_response = %{stream: stream3, metadata_handle: metadata_handle3}
         result = AgentObs.ReqLLM.collect_stream(stream_response)
         assert result.tokens == %{prompt: 0, completion: 0, total: 0}
       end
@@ -428,8 +444,8 @@ defmodule AgentObs.ReqLLMTest do
       if @req_llm_available do
         stream = create_mock_stream([])
 
-        metadata_task =
-          Task.async(fn ->
+        {:ok, metadata_handle} =
+          ReqLLM.StreamResponse.MetadataHandle.start_link(fn ->
             %{
               usage: %{input_tokens: 10, output_tokens: 5},
               finish_reason: "stop",
@@ -437,7 +453,7 @@ defmodule AgentObs.ReqLLMTest do
             }
           end)
 
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream_object(stream_response)
 
@@ -452,8 +468,13 @@ defmodule AgentObs.ReqLLMTest do
 
       if @req_llm_available do
         stream = create_mock_stream([])
-        metadata_task = Task.async(fn -> %{usage: %{input_tokens: 5, output_tokens: 3}} end)
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+
+        {:ok, metadata_handle} =
+          ReqLLM.StreamResponse.MetadataHandle.start_link(fn ->
+            %{usage: %{input_tokens: 5, output_tokens: 3}}
+          end)
+
+        stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream_object(stream_response)
 
@@ -468,8 +489,8 @@ defmodule AgentObs.ReqLLMTest do
 
       if @req_llm_available do
         stream = create_mock_stream([])
-        metadata_task = Task.async(fn -> %{} end)
-        stream_response = %{stream: stream, metadata_task: metadata_task}
+        {:ok, metadata_handle} = ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> %{} end)
+        stream_response = %{stream: stream, metadata_handle: metadata_handle}
 
         result = AgentObs.ReqLLM.collect_stream_object(stream_response)
 
@@ -791,7 +812,7 @@ defmodule AgentObs.ReqLLMTest do
       unless @req_llm_available, do: assert(true)
 
       if @req_llm_available do
-        model = get_test_model()
+        model = get_structured_output_model()
 
         if model do
           schema = [
@@ -840,7 +861,7 @@ defmodule AgentObs.ReqLLMTest do
       unless @req_llm_available, do: assert(true)
 
       if @req_llm_available do
-        model = get_test_model()
+        model = get_structured_output_model()
 
         if model do
           schema = [
@@ -873,12 +894,13 @@ defmodule AgentObs.ReqLLMTest do
       unless @req_llm_available, do: assert(true)
 
       if @req_llm_available do
-        model = get_test_model()
+        model = get_structured_output_model()
 
         if model do
+          # Use :integer instead of :pos_integer to avoid unsupported 'minimum' constraint
           schema = [
             name: [type: :string, required: true],
-            age: [type: :pos_integer, required: true]
+            age: [type: :integer, required: true]
           ]
 
           # Stream structured object
@@ -917,6 +939,21 @@ defmodule AgentObs.ReqLLMTest do
         System.get_env("ANTHROPIC_API_KEY") ->
           "anthropic:claude-3-5-haiku-latest"
 
+        System.get_env("OPENAI_API_KEY") ->
+          "openai:gpt-4o-mini"
+
+        System.get_env("GOOGLE_API_KEY") ->
+          "google:gemini-2.0-flash-exp"
+
+        true ->
+          nil
+      end
+    end
+
+    # Helper to get a model that supports structured output (JSON schema)
+    # Anthropic models don't support output_format, so we skip them for structured output tests
+    defp get_structured_output_model do
+      cond do
         System.get_env("OPENAI_API_KEY") ->
           "openai:gpt-4o-mini"
 

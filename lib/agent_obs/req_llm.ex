@@ -507,7 +507,8 @@ defmodule AgentObs.ReqLLM do
             {stream_chunks, replay_stream} = tee_stream(stream_response.stream)
 
             # Wait for metadata collection
-            metadata = Task.await(stream_response.metadata_task)
+            metadata =
+              ReqLLM.StreamResponse.MetadataHandle.await(stream_response.metadata_handle)
 
             # Extract token usage from metadata
             tokens = extract_tokens_from_metadata(metadata)
@@ -523,15 +524,16 @@ defmodule AgentObs.ReqLLM do
                 [%{role: "assistant", content: text_content}]
               end
 
-            # Create a new metadata task that returns the already-collected metadata
+            # Create a new metadata handle that returns the already-collected metadata
             # This allows collect_stream to work on the returned stream_response
-            new_metadata_task = Task.async(fn -> metadata end)
+            {:ok, new_metadata_handle} =
+              ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> metadata end)
 
-            # Return stream_response with replayed stream and new metadata task
+            # Return stream_response with replayed stream and new metadata handle
             stream_response_with_replay = %{
               stream_response
               | stream: replay_stream,
-                metadata_task: new_metadata_task
+                metadata_handle: new_metadata_handle
             }
 
             {:ok, stream_response_with_replay,
@@ -622,7 +624,8 @@ defmodule AgentObs.ReqLLM do
               {_stream_chunks, replay_stream} = tee_stream(stream_response.stream)
 
               # Wait for metadata collection
-              metadata = Task.await(stream_response.metadata_task)
+              metadata =
+                ReqLLM.StreamResponse.MetadataHandle.await(stream_response.metadata_handle)
 
               # Extract token usage from metadata
               tokens = extract_tokens_from_metadata(metadata)
@@ -632,15 +635,16 @@ defmodule AgentObs.ReqLLM do
 
               output_messages = [%{role: "assistant", content: object}]
 
-              # Create a new metadata task that returns the already-collected metadata
+              # Create a new metadata handle that returns the already-collected metadata
               # This allows collect_stream_object to work on the returned stream_response
-              new_metadata_task = Task.async(fn -> metadata end)
+              {:ok, new_metadata_handle} =
+                ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> metadata end)
 
-              # Return stream_response with replayed stream and new metadata task
+              # Return stream_response with replayed stream and new metadata handle
               stream_response_with_replay = %{
                 stream_response
                 | stream: replay_stream,
-                  metadata_task: new_metadata_task
+                  metadata_handle: new_metadata_handle
               }
 
               {:ok, stream_response_with_replay,
@@ -759,7 +763,7 @@ defmodule AgentObs.ReqLLM do
     chunks = Enum.to_list(stream_response.stream)
 
     # Get metadata
-    metadata = Task.await(stream_response.metadata_task)
+    metadata = ReqLLM.StreamResponse.MetadataHandle.await(stream_response.metadata_handle)
 
     # Extract information
     text = build_text_from_chunks(chunks)
@@ -805,7 +809,7 @@ defmodule AgentObs.ReqLLM do
     _chunks = Enum.to_list(stream_response.stream)
 
     # Get metadata
-    metadata = Task.await(stream_response.metadata_task)
+    metadata = ReqLLM.StreamResponse.MetadataHandle.await(stream_response.metadata_handle)
 
     # Extract information
     tokens = extract_tokens_from_metadata(metadata)
