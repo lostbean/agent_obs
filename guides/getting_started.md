@@ -298,10 +298,12 @@ Now that you have basic instrumentation working, explore:
 
 - **[Configuration Guide](configuration.md)** - Advanced configuration options,
   production setup, and troubleshooting
-- **[Instrumentation Guide](instrumentation.md)** - Best practices, patterns, and
-  advanced techniques for complex agents
+- **[Instrumentation Guide](instrumentation.md)** - Best practices, patterns,
+  and advanced techniques for complex agents
 - **[ReqLLM Integration](req_llm_integration.md)** - Simplified streaming
   instrumentation with automatic metadata extraction (recommended for streaming)
+- **[LangChain & Sagents Integration](langchain_sagents.md)** - Callback-based
+  instrumentation for LangChain and middleware for Sagents
 - **[Custom Handlers](custom_handlers.md)** - Building your own backend handlers
   for custom observability platforms
 

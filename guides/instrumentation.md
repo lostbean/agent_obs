@@ -84,8 +84,8 @@ end
 
 ### Pattern 2: Agent with Tools (ReAct Loop)
 
-An agent that can use tools in a reasoning loop. This example uses ReqLLM
-for automatic tool call handling:
+An agent that can use tools in a reasoning loop. This example uses ReqLLM for
+automatic tool call handling:
 
 ```elixir
 defmodule MyApp.ToolAgent do
@@ -756,10 +756,12 @@ end
 
 With proper error handling and AgentObs instrumentation:
 
-1. **Errors are traced** - Failed spans appear in Phoenix/Jaeger with error status
+1. **Errors are traced** - Failed spans appear in Phoenix/Jaeger with error
+   status
 2. **Error messages are captured** - Full error details in span attributes
 3. **Stack traces are preserved** - Exception events include full stacktrace
-4. **Agent can recover** - LLM sees tool errors and can retry or provide alternative
+4. **Agent can recover** - LLM sees tool errors and can retry or provide
+   alternative
 
 ### Testing Error Scenarios
 
@@ -808,10 +810,83 @@ test "agent processes query correctly" do
 end
 ```
 
+## LangChain and Sagents Integration
+
+For applications using LangChain or Sagents, AgentObs provides higher-level
+integration that eliminates manual `trace_llm/3` and `trace_tool/3` calls.
+
+### LangChain: `run/2` (Full Lifecycle)
+
+Wraps `LLMChain.run/2` with an outer LLM span:
+
+```elixir
+{:ok, chain} =
+  LLMChain.new!(%{llm: model, messages: messages})
+  |> LLMChain.add_tools(tools)
+  |> AgentObs.LangChain.run(mode: :while_needs_response)
+```
+
+In `while_needs_response` mode, each iteration creates a child LLM span nested
+under the outer span, giving visibility into multi-turn loops.
+
+### LangChain: `instrument/2` (Direct Instrumentation)
+
+For chains managed by Sagents or your own loop, instrument directly:
+
+```elixir
+chain =
+  LLMChain.new!(%{llm: model, messages: messages})
+  |> LLMChain.add_tools(tools)
+  |> AgentObs.LangChain.instrument()
+```
+
+Options:
+
+- `:parent_ctx` - OTel context for `Task.async` boundaries
+- `:trace_tools` - Enable/disable tool tracing (default: `true`)
+- `:metadata` - Extra metadata attached to all spans
+
+### Context Propagation Across Tasks
+
+OTel context is process-local. When spawning tasks, capture and restore it:
+
+```elixir
+parent_ctx = OpenTelemetry.Ctx.get_current()
+
+Task.async(fn ->
+  chain
+  |> AgentObs.LangChain.instrument(parent_ctx: parent_ctx)
+  |> LLMChain.run()
+end)
+```
+
+### Sagents Middleware
+
+Add `AgentObs.Sagents` first in the middleware list:
+
+```elixir
+{:ok, agent} = Agent.new(%{
+  agent_id: "my-agent",
+  model: model,
+  middleware: [
+    AgentObs.Sagents,
+    Sagents.Middleware.TodoList
+  ]
+})
+```
+
+Each iteration of the agent loop emits `[:agent_obs, :llm, :start/stop]` events
+with accurate timing. For tool tracing, instrument the chain with
+`AgentObs.LangChain.instrument/2`.
+
+See `AgentObs.LangChain` and `AgentObs.Sagents` module docs for full details.
+
 ## Next Steps
 
 - **[ReqLLM Integration](req_llm_integration.md)** - Simplified streaming
   instrumentation
+- **[LangChain & Sagents Integration](langchain_sagents.md)** - Callback-based
+  instrumentation for LangChain and middleware for Sagents
 - **[Custom Handlers](custom_handlers.md)** - Building custom observability
   backends
 - **[Configuration Guide](configuration.md)** - Advanced configuration options

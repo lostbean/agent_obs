@@ -12,6 +12,10 @@ observability backends through a pluggable handler architecture.
   `trace_llm/3`, `trace_prompt/3`
 - 🤖 **ReqLLM integration helpers (optional)** - Automatic instrumentation for
   ReqLLM with token tracking and streaming support
+- 🔗 **LangChain integration (optional)** - Callback-based instrumentation for
+  LangChain with `run/2`, `instrument/2`, and tool tracing
+- 🧩 **Sagents integration (optional)** - Middleware for Sagents agent framework
+  with per-iteration LLM tracing
 - 🔌 **Pluggable backend architecture** - Support for multiple observability
   platforms
 - 🌟 **OpenInference support** - Full semantic conventions for Arize Phoenix
@@ -134,6 +138,8 @@ examples.
   API
 - [ReqLLM Integration](guides/req_llm_integration.md) - Complete ReqLLM
   integration guide
+- [LangChain & Sagents Integration](guides/langchain_sagents.md) - Instrumenting
+  LangChain chains and Sagents agents
 - [Custom Handlers](guides/custom_handlers.md) - Build your own observability
   backend
 
@@ -145,6 +151,17 @@ examples.
 - `AgentObs.trace_tool/3` - Instruments tool calls
 - `AgentObs.trace_llm/3` - Instruments LLM API calls
 - `AgentObs.trace_prompt/3` - Instruments prompt template rendering
+
+### LangChain Helpers (Optional)
+
+- `AgentObs.LangChain.run/2` - Wraps `LLMChain.run/2` with full tracing
+- `AgentObs.LangChain.run!/2` - Bang variant
+- `AgentObs.LangChain.instrument/2` - Instruments a chain with callbacks
+- `AgentObs.LangChain.callbacks/1` - Returns a callback map for manual use
+
+### Sagents Middleware (Optional)
+
+- `AgentObs.Sagents` - Implements `Sagents.Middleware` for automatic tracing
 
 ### ReqLLM Helpers (Optional)
 

@@ -2,76 +2,92 @@ defmodule AgentObs.TestHelper do
   @moduledoc """
   Test helpers for AgentObs test suite.
 
-  Provides utilities for capturing and asserting on OpenTelemetry spans
-  during testing without requiring actual backend connections.
+  Provides utilities for capturing and asserting on real OpenTelemetry spans
+  using `:otel_exporter_pid` to receive span records in the test process.
   """
+
+  import ExUnit.Assertions
+
+  # Extract the #span{} record from otel_span.hrl so we can destructure the
+  # Erlang tuple sent by :otel_exporter_pid.
+  require Record
+
+  Record.defrecord(:span, Record.extract(:span, from_lib: "opentelemetry/include/otel_span.hrl"))
+
+  Record.defrecord(
+    :status,
+    Record.extract(:status, from_lib: "opentelemetry_api/include/opentelemetry.hrl")
+  )
 
   @doc """
-  Captures all spans created during the execution of a function.
+  Receives a single span message from `:otel_exporter_pid` and converts
+  it to a readable Elixir map.
 
-  Uses OpenTelemetry's in-process exporter to collect spans without
-  sending them to an external backend.
+  ## Options
 
-  ## Examples
+  - `:timeout` — milliseconds to wait (default 5_000)
 
-      spans = capture_spans(fn ->
-        AgentObs.trace_agent("test", %{input: "test"}, fn ->
-          {:ok, "result"}
-        end)
-      end)
+  ## Returns
 
-      assert length(spans) == 1
+  A map with keys: `:name`, `:trace_id`, `:span_id`, `:parent_span_id`,
+  `:attributes`, `:status`, `:kind`, `:start_time`, `:end_time`, `:events`,
+  `:links`, `:trace_flags`, `:is_recording`, `:instrumentation_scope`.
   """
-  def capture_spans(fun) when is_function(fun, 0) do
-    # Start a simple span processor with in-memory collector
-    collector_pid = start_span_collector()
+  def receive_span(opts \\ []) do
+    timeout = Keyword.get(opts, :timeout, 5_000)
 
-    result =
-      try do
-        # Execute the function that should create spans
-        fun.()
-      after
-        # Give spans time to be processed
-        Process.sleep(50)
-      end
-
-    # Get collected spans
-    spans = get_collected_spans(collector_pid)
-    stop_span_collector(collector_pid)
-
-    {result, spans}
-  end
-
-  @doc """
-  Asserts that a span with the given name exists in the list of spans.
-
-  ## Examples
-
-      assert_span_exists(spans, "my_agent")
-  """
-  def assert_span_exists(spans, expected_name) do
-    span_names = Enum.map(spans, & &1.name)
-
-    if expected_name in span_names do
-      :ok
-    else
-      raise ExUnit.AssertionError,
-        message: """
-        Expected span named "#{expected_name}" not found.
-        Available spans: #{inspect(span_names)}
-        """
+    receive do
+      {:span, raw} when Record.is_record(raw, :span) ->
+        span_to_map(raw)
+    after
+      timeout ->
+        flunk("Expected to receive a span within #{timeout}ms but none arrived")
     end
   end
 
   @doc """
+  Drains all `{:span, _}` messages currently in the mailbox and returns them
+  as a list of maps. Does not wait for new messages.
+  """
+  def receive_all_spans do
+    receive_all_spans_acc([])
+  end
+
+  defp receive_all_spans_acc(acc) do
+    receive do
+      {:span, raw} when Record.is_record(raw, :span) ->
+        receive_all_spans_acc([span_to_map(raw) | acc])
+    after
+      100 ->
+        Enum.reverse(acc)
+    end
+  end
+
+  @doc """
+  Flushes all pending `{:span, _}` messages from the mailbox.
+  """
+  def flush_spans do
+    receive do
+      {:span, _} -> flush_spans()
+    after
+      0 -> :ok
+    end
+  end
+
+  @doc """
+  Asserts that a span with the given name exists in the list of spans.
+  """
+  def assert_span_exists(spans, expected_name) do
+    span_names = Enum.map(spans, & &1.name)
+
+    assert expected_name in span_names,
+           "Expected span named #{inspect(expected_name)} not found.\nAvailable spans: #{inspect(span_names)}"
+
+    :ok
+  end
+
+  @doc """
   Finds a span by name in the list of spans.
-
-  Returns the first matching span or nil if not found.
-
-  ## Examples
-
-      span = find_span(spans, "my_agent")
-      assert span.attributes["input.value"] == "test"
   """
   def find_span(spans, name) do
     Enum.find(spans, &(&1.name == name))
@@ -79,121 +95,74 @@ defmodule AgentObs.TestHelper do
 
   @doc """
   Asserts that a span has a specific attribute with the expected value.
-
-  ## Examples
-
-      assert_span_attribute(span, "llm.model", "gpt-4o")
   """
-  def assert_span_attribute(span, key, expected_value) do
-    actual_value = get_in(span, [:attributes, key])
+  def assert_span_attribute(span_map, key, expected_value) do
+    actual_value = span_map.attributes[key]
 
-    if actual_value == expected_value do
-      :ok
-    else
-      raise ExUnit.AssertionError,
-        message: """
-        Span attribute mismatch for "#{key}":
-        Expected: #{inspect(expected_value)}
-        Actual: #{inspect(actual_value)}
-        """
-    end
+    assert actual_value == expected_value,
+           "Span #{inspect(span_map.name)} attribute #{inspect(key)} mismatch.\nExpected: #{inspect(expected_value)}\nActual: #{inspect(actual_value)}"
+
+    :ok
   end
 
   @doc """
   Asserts that a span has a specific attribute (regardless of value).
-
-  ## Examples
-
-      assert_span_has_attribute(span, "openinference.span.kind")
   """
-  def assert_span_has_attribute(span, key) do
-    if Map.has_key?(span.attributes || %{}, key) do
-      :ok
-    else
-      available_keys = Map.keys(span.attributes || %{})
+  def assert_span_has_attribute(span_map, key) do
+    assert Map.has_key?(span_map.attributes, key),
+           "Span #{inspect(span_map.name)} missing attribute #{inspect(key)}.\nAvailable: #{inspect(Map.keys(span_map.attributes))}"
 
-      raise ExUnit.AssertionError,
-        message: """
-        Span does not have attribute "#{key}".
-        Available attributes: #{inspect(available_keys)}
-        """
-    end
+    :ok
   end
 
   @doc """
-  Asserts parent-child relationship between two spans.
-
-  Verifies that child_span's parent_span_id matches parent_span's span_id.
-
-  ## Examples
-
-      parent = find_span(spans, "agent")
-      child = find_span(spans, "llm_call")
-      assert_span_parent(child, parent)
+  Asserts parent-child relationship between two span maps.
   """
   def assert_span_parent(child_span, parent_span) do
-    parent_id = extract_span_id(parent_span)
-    child_parent_id = extract_parent_span_id(child_span)
+    assert child_span.parent_span_id == parent_span.span_id,
+           "Parent-child mismatch.\nParent span_id: #{inspect(parent_span.span_id)}\nChild parent_span_id: #{inspect(child_span.parent_span_id)}"
 
-    if child_parent_id == parent_id do
-      :ok
-    else
-      raise ExUnit.AssertionError,
-        message: """
-        Span parent mismatch:
-        Expected child's parent_span_id to match parent's span_id
-        Parent span_id: #{inspect(parent_id)}
-        Child parent_span_id: #{inspect(child_parent_id)}
-        """
-    end
+    :ok
   end
 
-  @doc """
-  Builds a mock telemetry span collector process.
+  # -- Private: convert Erlang #span{} record to Elixir map --
 
-  This is used internally by capture_spans/1.
-  """
-  def start_span_collector do
-    {:ok, pid} = Agent.start_link(fn -> [] end)
-    pid
-  end
+  defp span_to_map(raw) do
+    attrs =
+      case span(raw, :attributes) do
+        a when is_tuple(a) -> :otel_attributes.map(a)
+        :undefined -> %{}
+        _ -> %{}
+      end
 
-  @doc """
-  Retrieves all collected spans from the collector.
-  """
-  def get_collected_spans(collector_pid) do
-    # Since we're using OpenTelemetry's built-in simple processor in test mode,
-    # we need to read spans using OTel's test utilities
-    # For now, return empty list - this will be enhanced when we integrate
-    # with actual OTel test exporter
-    Agent.get(collector_pid, & &1)
-  end
+    stat =
+      case span(raw, :status) do
+        s when Record.is_record(s, :status) ->
+          %{code: status(s, :code), message: status(s, :message)}
 
-  @doc """
-  Stops the span collector process.
-  """
-  def stop_span_collector(collector_pid) do
-    Agent.stop(collector_pid)
-  end
+        :undefined ->
+          nil
 
-  # Private helpers
+        _ ->
+          nil
+      end
 
-  defp extract_span_id(span) do
-    # OpenTelemetry span records have a span_id field
-    # The actual structure depends on OTel version
-    case span do
-      %{span_id: id} -> id
-      {_, _, id, _, _, _, _, _, _, _, _, _} -> id
-      _ -> nil
-    end
-  end
-
-  defp extract_parent_span_id(span) do
-    # OpenTelemetry span records have a parent_span_id field
-    case span do
-      %{parent_span_id: id} -> id
-      {_, _, _, id, _, _, _, _, _, _, _, _} -> id
-      _ -> nil
-    end
+    %{
+      name: span(raw, :name),
+      trace_id: span(raw, :trace_id),
+      span_id: span(raw, :span_id),
+      parent_span_id: span(raw, :parent_span_id),
+      tracestate: span(raw, :tracestate),
+      kind: span(raw, :kind),
+      start_time: span(raw, :start_time),
+      end_time: span(raw, :end_time),
+      attributes: attrs,
+      events: span(raw, :events),
+      links: span(raw, :links),
+      status: stat,
+      trace_flags: span(raw, :trace_flags),
+      is_recording: span(raw, :is_recording),
+      instrumentation_scope: span(raw, :instrumentation_scope)
+    }
   end
 end

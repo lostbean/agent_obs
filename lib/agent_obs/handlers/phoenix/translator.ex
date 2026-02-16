@@ -81,6 +81,7 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
     |> maybe_add("ai.model.id", metadata.model)
     |> maybe_add("ai.model.provider", extract_provider(metadata.model))
     |> Map.merge(flatten_input_messages(metadata[:input_messages]))
+    |> maybe_add_input_value(metadata[:input_messages])
   end
 
   def from_start_metadata(:prompt, metadata) do
@@ -295,6 +296,35 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
   defp maybe_add(attrs, _key, nil), do: attrs
   defp maybe_add(attrs, key, value), do: Map.put(attrs, key, value)
 
+  defp maybe_add_input_value(attrs, nil), do: attrs
+  defp maybe_add_input_value(attrs, []), do: attrs
+
+  defp maybe_add_input_value(attrs, messages) when is_list(messages) do
+    # Extract the last user message content as input.value
+    last_user =
+      messages
+      |> Enum.reverse()
+      |> Enum.find(fn msg -> to_string(Map.get(msg, :role)) == "user" end)
+
+    case last_user do
+      nil ->
+        attrs
+
+      msg ->
+        content = get_message_field(msg, :content)
+
+        case content do
+          nil ->
+            attrs
+
+          value ->
+            attrs
+            |> Map.put("input.value", to_json_safe(value))
+            |> Map.put("input.mime_type", "text/plain")
+        end
+    end
+  end
+
   defp maybe_add_metadata(attrs, nil), do: attrs
 
   defp maybe_add_metadata(attrs, metadata) when is_map(metadata) do
@@ -410,13 +440,14 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
 
   defp format_module_name(module), do: to_string(module)
 
-  # Extract provider from model string (e.g., "anthropic:claude-3" -> "anthropic")
+  # Extract provider from model string.
+  # Supports both ReqLLM format ("anthropic:claude-3") and LangChain format ("anthropic/claude-3").
   defp extract_provider(model) when is_binary(model) do
-    case String.split(model, ":", parts: 2) do
-      [provider, _model] ->
+    case String.split(model, [":", "/"], parts: 2) do
+      [provider, _model] when provider != "" ->
         provider
 
-      [model] ->
+      _ ->
         cond do
           String.starts_with?(model, "gpt-") -> "openai"
           String.starts_with?(model, "claude-") -> "anthropic"

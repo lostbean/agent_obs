@@ -135,16 +135,24 @@ defmodule AgentObs.Handlers.Generic do
     # Get current context to ensure proper parent-child relationships
     parent_ctx = OpenTelemetry.Ctx.get_current()
 
+    # Support explicit start_time from metadata (e.g., Sagents captures timing in before_model)
+    span_opts =
+      case metadata[:start_time] do
+        nil -> %{attributes: attributes}
+        start_time -> %{attributes: attributes, start_time: start_time}
+      end
+
     # Start span - automatically uses current context as parent
-    span_ctx = Tracer.start_span(span_name, %{attributes: attributes})
+    span_ctx = Tracer.start_span(span_name, span_opts)
 
     # Update context to include this new span
     new_ctx = OpenTelemetry.Tracer.set_current_span(parent_ctx, span_ctx)
     OpenTelemetry.Ctx.attach(new_ctx)
 
-    # Store both span and parent context for later restoration
+    # Store both span and parent context as a stack for nested same-type spans
     span_key = span_context_key(event_type)
-    Process.put(span_key, {span_ctx, parent_ctx})
+    stack = Process.get(span_key, [])
+    Process.put(span_key, [{span_ctx, parent_ctx} | stack])
 
     :ok
   end
@@ -152,30 +160,37 @@ defmodule AgentObs.Handlers.Generic do
   defp handle_stop(event_type, measurements, metadata) do
     span_key = span_context_key(event_type)
 
-    case Process.get(span_key) do
-      {_span_ctx, parent_ctx} ->
-        attributes = build_stop_attributes(event_type, metadata, measurements)
-
-        Tracer.set_attributes(attributes)
-
-        # Set span status based on error presence
-        if Map.has_key?(metadata, :error) do
-          error_msg = to_string_safe(metadata[:error])
-          Tracer.set_status(OpenTelemetry.status(:error, error_msg))
-        else
-          Tracer.set_status(OpenTelemetry.status(:ok))
-        end
-
-        Tracer.end_span()
-
-        # Restore parent context
-        OpenTelemetry.Ctx.attach(parent_ctx)
-        Process.delete(span_key)
-
-      nil ->
+    case Process.get(span_key, []) do
+      [] ->
         Logger.warning(
           "AgentObs.Handlers.Generic: No active span found for #{event_type} :stop event"
         )
+
+      [{_span_ctx, parent_ctx} | rest] ->
+        try do
+          attributes = build_stop_attributes(event_type, metadata, measurements)
+
+          Tracer.set_attributes(attributes)
+
+          # Set span status based on error presence
+          if Map.has_key?(metadata, :error) do
+            error_msg = to_string_safe(metadata[:error])
+            Tracer.set_status(OpenTelemetry.status(:error, error_msg))
+          else
+            Tracer.set_status(OpenTelemetry.status(:ok))
+          end
+
+          Tracer.end_span()
+        after
+          # Always restore parent context
+          OpenTelemetry.Ctx.attach(parent_ctx)
+
+          if rest == [] do
+            Process.delete(span_key)
+          else
+            Process.put(span_key, rest)
+          end
+        end
     end
 
     :ok
@@ -184,24 +199,31 @@ defmodule AgentObs.Handlers.Generic do
   defp handle_exception(event_type, _measurements, metadata) do
     span_key = span_context_key(event_type)
 
-    case Process.get(span_key) do
-      {_span_ctx, parent_ctx} ->
-        kind = metadata[:kind] || :error
-        reason = metadata[:reason] || "Unknown error"
-        stacktrace = metadata[:stacktrace] || []
-
-        Tracer.record_exception(kind, reason, stacktrace)
-        Tracer.set_status(OpenTelemetry.status(:error, "Exception occurred"))
-        Tracer.end_span()
-
-        # Restore parent context
-        OpenTelemetry.Ctx.attach(parent_ctx)
-        Process.delete(span_key)
-
-      nil ->
+    case Process.get(span_key, []) do
+      [] ->
         Logger.warning(
           "AgentObs.Handlers.Generic: No active span found for #{event_type} :exception event"
         )
+
+      [{_span_ctx, parent_ctx} | rest] ->
+        try do
+          kind = metadata[:kind] || :error
+          reason = metadata[:reason] || "Unknown error"
+          stacktrace = metadata[:stacktrace] || []
+
+          Tracer.record_exception(kind, reason, stacktrace)
+          Tracer.set_status(OpenTelemetry.status(:error, "Exception occurred"))
+          Tracer.end_span()
+        after
+          # Always restore parent context
+          OpenTelemetry.Ctx.attach(parent_ctx)
+
+          if rest == [] do
+            Process.delete(span_key)
+          else
+            Process.put(span_key, rest)
+          end
+        end
     end
 
     :ok

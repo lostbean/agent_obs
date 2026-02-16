@@ -20,7 +20,17 @@
       "Bash(OTLP_BACKEND=jaeger mix run -e 'IO.inspect(Application.get_env(:agent_obs, :handlers))')",
       "Bash(mix test:*)",
       "WebFetch(domain:hexdocs.pm)",
-      "Bash(mix compile:*)"
+      "Bash(mix compile:*)",
+      "WebSearch",
+      "Bash(gh api:*)",
+      "Bash(wc:*)",
+      "Bash(mix deps.get:*)",
+      "Bash(mix credo:*)",
+      "WebFetch(domain:hex.pm)",
+      "Bash(mix hex.info:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(ANTHROPIC_API_KEY= mix test:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,7 +1,7 @@
 defmodule AgentObs.MixProject do
   use Mix.Project
 
-  @version "0.1.3"
+  @version "0.2.0"
   @source_url "https://github.com/lostbean/agent_obs"
 
   def project do
@@ -39,11 +39,17 @@ defmodule AgentObs.MixProject do
 
       # Optional dependencies for integrations
       {:req_llm, "~> 1.0", optional: true},
+      {:langchain, "~> 0.5 or ~> 0.6", optional: true},
+      {:sagents, github: "lostbean/sagents", branch: "preview/all-features", optional: true},
+
+      # Horde needed for sagents compilation (optional in sagents)
+      {:horde, "~> 0.10", optional: true},
 
       # Development and testing dependencies
       {:ex_doc, "~> 0.28", only: :dev, runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
-      {:credo, "~> 1.6", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
+      {:req_cassette, "~> 0.5", only: :test}
     ]
   end
 
@@ -84,6 +90,7 @@ defmodule AgentObs.MixProject do
         "guides/configuration.md",
         "guides/instrumentation.md",
         "guides/req_llm_integration.md",
+        "guides/langchain_sagents.md",
         "guides/custom_handlers.md"
       ],
       groups_for_extras: [
@@ -92,6 +99,7 @@ defmodule AgentObs.MixProject do
           "guides/configuration.md",
           "guides/instrumentation.md",
           "guides/req_llm_integration.md",
+          "guides/langchain_sagents.md",
           "guides/custom_handlers.md"
         ]
       ],
@@ -107,27 +115,17 @@ defmodule AgentObs.MixProject do
           AgentObs.Handlers.Phoenix.Translator
         ],
         Integrations: [
-          AgentObs.ReqLLM
+          AgentObs.ReqLLM,
+          AgentObs.LangChain,
+          AgentObs.Sagents
         ],
         Infrastructure: [
           AgentObs.Application,
           AgentObs.Supervisor
         ]
-      ],
-      before_closing_body_tag: &before_closing_body_tag/1
+      ]
     ]
   end
-
-  # Add analytics or custom scripts if needed
-  defp before_closing_body_tag(:html) do
-    """
-    <script>
-      // Add any custom JavaScript for documentation here
-    </script>
-    """
-  end
-
-  defp before_closing_body_tag(_), do: ""
 
   def cli do
     [preferred_envs: [precommit: :test, ci: :test]]

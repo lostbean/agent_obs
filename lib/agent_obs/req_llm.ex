@@ -1,4 +1,12 @@
 defmodule AgentObs.ReqLLM do
+  @compile {:no_warn_undefined,
+            [
+              ReqLLM,
+              ReqLLM.Response,
+              ReqLLM.StreamResponse.MetadataHandle,
+              ReqLLM.Tool
+            ]}
+
   @moduledoc """
   High-level helpers for instrumenting ReqLLM streaming operations with AgentObs.
 

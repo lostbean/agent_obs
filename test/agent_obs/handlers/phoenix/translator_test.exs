@@ -169,6 +169,45 @@ defmodule AgentObs.Handlers.Phoenix.TranslatorTest do
       assert String.contains?(args_json, "SF")
     end
 
+    test "sets input.value from last user message" do
+      metadata = %{
+        model: "gpt-4o",
+        input_messages: [
+          %{role: "system", content: "You are helpful."},
+          %{role: "user", content: "What is the weather?"},
+          %{role: "assistant", content: "Let me check."},
+          %{role: "user", content: "In San Francisco"}
+        ]
+      }
+
+      attributes = Translator.from_start_metadata(:llm, metadata)
+
+      assert attributes["input.value"] == "In San Francisco"
+      assert attributes["input.mime_type"] == "text/plain"
+    end
+
+    test "does not set input.value when no user messages" do
+      metadata = %{
+        model: "gpt-4o",
+        input_messages: [
+          %{role: "system", content: "You are helpful."}
+        ]
+      }
+
+      attributes = Translator.from_start_metadata(:llm, metadata)
+
+      refute Map.has_key?(attributes, "input.value")
+      refute Map.has_key?(attributes, "input.mime_type")
+    end
+
+    test "does not set input.value when input_messages is nil" do
+      metadata = %{model: "gpt-4o", input_messages: nil}
+
+      attributes = Translator.from_start_metadata(:llm, metadata)
+
+      refute Map.has_key?(attributes, "input.value")
+    end
+
     test "handles input messages with map content without crashing" do
       # Test that map content in input messages is handled correctly
       # This mirrors the fix for output messages with structured objects

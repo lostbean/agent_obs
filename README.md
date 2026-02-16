@@ -14,8 +14,12 @@ observability backends through a pluggable handler architecture.
 
 - 🎯 **High-level instrumentation helpers** - `trace_agent/3`, `trace_tool/3`,
   `trace_llm/3`, `trace_prompt/3`
-- 🤖 **ReqLLM integration helpers (optional)** - Automatic instrumentation for
-  ReqLLM with token tracking and streaming support
+- 🤖 **ReqLLM integration (optional)** - Automatic instrumentation for ReqLLM
+  with token tracking and streaming support
+- 🔗 **LangChain integration (optional)** - Callback-based instrumentation for
+  LangChain LLMChain with tool tracing
+- 🧩 **Sagents integration (optional)** - Middleware for Sagents agent framework
+  with per-iteration LLM tracing
 - 🔌 **Pluggable backend architecture** - Support for multiple observability
   platforms
 - 🌟 **OpenInference support** - Full semantic conventions for Arize Phoenix
@@ -218,6 +222,93 @@ object = ReqLLM.Response.object(response)
 See the [demo agent](demo/lib/demo/agent.ex) and
 [ReqLLM integration guide](guides/req_llm_integration.md) for complete examples.
 
+## LangChain Integration (Optional)
+
+For applications using [LangChain](https://hexdocs.pm/langchain), AgentObs
+provides callback-based instrumentation that automatically traces LLM calls and
+tool executions:
+
+```elixir
+# Add to your deps
+{:langchain, "~> 0.5"}
+
+# Recommended: use the run/2 wrapper for full span lifecycle
+alias LangChain.Chains.LLMChain
+alias LangChain.ChatModels.ChatAnthropic
+alias LangChain.Message
+
+{:ok, chain} =
+  LLMChain.new!(%{
+    llm: ChatAnthropic.new!(%{model: "claude-sonnet-4-5-20250929"}),
+    messages: [Message.new_system!("You are helpful.")]
+  })
+  |> LLMChain.add_message(Message.new_user!("Hello!"))
+  |> AgentObs.LangChain.run()
+
+# With tool loop
+{:ok, chain} =
+  LLMChain.new!(%{llm: model, messages: messages})
+  |> LLMChain.add_tools(tools)
+  |> AgentObs.LangChain.run(mode: :while_needs_response)
+
+# Or add callbacks manually for more control
+LLMChain.new!(%{llm: model, messages: messages})
+|> LLMChain.add_callback(AgentObs.LangChain.callbacks())
+|> LLMChain.run()
+
+# Or instrument a chain directly (useful with Sagents or custom loops)
+chain =
+  LLMChain.new!(%{llm: model, messages: messages})
+  |> LLMChain.add_tools(tools)
+  |> AgentObs.LangChain.instrument()
+
+# With parent context for Task.async boundaries
+parent_ctx = OpenTelemetry.Ctx.get_current()
+Task.async(fn ->
+  chain
+  |> AgentObs.LangChain.instrument(parent_ctx: parent_ctx)
+  |> LLMChain.run()
+end)
+```
+
+See `AgentObs.LangChain` module docs for full details.
+
+## Sagents Integration (Optional)
+
+For applications using [Sagents](https://hexdocs.pm/sagents), AgentObs provides
+a middleware that instruments every iteration of the agent loop:
+
+```elixir
+# Add to your deps
+{:sagents, "~> 0.1"}
+
+# Add the middleware to your agent (place first for accurate timing)
+alias Sagents.Agent
+
+{:ok, agent} = Agent.new(%{
+  agent_id: "my-agent",
+  model: ChatAnthropic.new!(%{model: "claude-sonnet-4-5-20250929"}),
+  middleware: [
+    AgentObs.Sagents,
+    Sagents.Middleware.TodoList
+  ]
+})
+```
+
+To trace tool executions within the agent loop, instrument the chain:
+
+```elixir
+chain =
+  LLMChain.new!(%{llm: model, messages: state.messages})
+  |> LLMChain.add_tools(tools)
+  |> AgentObs.LangChain.instrument()
+```
+
+Each iteration of the agent's execution loop emits `[:agent_obs, :llm, :start]`
+and `[:agent_obs, :llm, :stop]` telemetry events with input/output messages,
+token usage, and model name. See `AgentObs.Sagents` module docs for full
+details.
+
 ## API Reference
 
 ### High-Level Instrumentation
@@ -226,6 +317,18 @@ See the [demo agent](demo/lib/demo/agent.ex) and
 - **`trace_tool/3`** - Instruments tool calls
 - **`trace_llm/3`** - Instruments LLM API calls
 - **`trace_prompt/3`** - Instruments prompt template rendering
+
+### LangChain Helpers (Optional)
+
+- **`AgentObs.LangChain.run/2`** - Wraps `LLMChain.run/2` with full tracing
+- **`AgentObs.LangChain.run!/2`** - Bang variant
+- **`AgentObs.LangChain.instrument/2`** - Instruments a chain with callbacks
+  (for use outside `run/2`)
+- **`AgentObs.LangChain.callbacks/1`** - Returns a callback map for manual use
+
+### Sagents Middleware (Optional)
+
+- **`AgentObs.Sagents`** - Implements `Sagents.Middleware` for automatic tracing
 
 ### ReqLLM Helpers (Optional)
 
@@ -273,6 +376,24 @@ mix test --include integration
 # Run only integration tests
 mix test --only integration
 ```
+
+### Viewing Test Traces in a Local Collector
+
+You can export spans from the test suite to a local OTLP collector (e.g. Arize
+Phoenix) by setting `OTEL_EXPORTER_OTLP_ENDPOINT`:
+
+```bash
+# Start a local Phoenix instance
+docker run -p 6060:6060 arizephoenix/phoenix:latest
+
+# Run tests with trace export
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:6060 mix test test/agent_obs/e2e_span_test.exs
+```
+
+Traces will appear at `http://localhost:6060/projects`. When the env var is set,
+the test suite switches from the simple span processor to the batch processor
+with the OTLP exporter; `receive_span` assertions are skipped since spans go to
+the collector instead of the test process mailbox.
 
 ### ReqLLM Integration Tests
 

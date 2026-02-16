@@ -41,9 +41,12 @@ defmodule AgentObs.Handlers.Phoenix do
 
   ## Span Context Management
 
-  Spans are stored in the process dictionary with a unique key per event type.
-  This allows nested instrumentation (e.g., agent -> llm -> tool) to create
-  proper parent-child span relationships automatically.
+  Spans are stored in the process dictionary as a stack per event type.
+  This allows nested instrumentation (e.g., agent -> llm -> tool) and
+  nested same-type spans (e.g., tool -> tool) to create proper
+  parent-child span relationships automatically. Context restoration
+  is wrapped in `try/after` to ensure the OTel context is always
+  restored even if the translator raises.
   """
 
   use GenServer
@@ -153,19 +156,26 @@ defmodule AgentObs.Handlers.Phoenix do
     # Get current context to ensure we create a child span if one exists
     parent_ctx = OpenTelemetry.Ctx.get_current()
 
+    # Support explicit start_time from metadata (e.g., Sagents captures timing in before_model)
+    span_opts =
+      case metadata[:start_time] do
+        nil -> %{attributes: attributes}
+        start_time -> %{attributes: attributes, start_time: start_time}
+      end
+
     # Start span - this automatically uses the current context as parent
-    span_ctx = Tracer.start_span(span_name, %{attributes: attributes})
+    span_ctx = Tracer.start_span(span_name, span_opts)
 
     # CRITICAL: Update the current context to include this new span
     # This ensures nested spans become children
     new_ctx = OpenTelemetry.Tracer.set_current_span(parent_ctx, span_ctx)
     OpenTelemetry.Ctx.attach(new_ctx)
 
-    # Store BOTH span and context in process dictionary
-    # We need the parent context to restore it later
+    # Store BOTH span and context in process dictionary as a stack
+    # Stack-based storage supports nested spans of the same event type
     span_key = span_context_key(event_type)
-    stored_tuple = {span_ctx, parent_ctx}
-    Process.put(span_key, stored_tuple)
+    stack = Process.get(span_key, [])
+    Process.put(span_key, [{span_ctx, parent_ctx} | stack])
 
     :ok
   end
@@ -173,46 +183,45 @@ defmodule AgentObs.Handlers.Phoenix do
   defp handle_stop(event_type, measurements, metadata) do
     span_key = span_context_key(event_type)
 
-    case Process.get(span_key) do
-      nil ->
+    case Process.get(span_key, []) do
+      [] ->
         Logger.warning(
           "AgentObs.Handlers.Phoenix: No active span found for #{event_type} :stop event"
         )
 
-      stored_value ->
-        # Extract span_ctx and parent_ctx from stored tuple
-        # The stored_value should be a 2-tuple: {span_ctx, parent_ctx}
-        case stored_value do
-          {_span_ctx, parent_ctx} ->
-            attributes = Translator.from_stop_metadata(event_type, metadata, measurements)
+      [{span_ctx, parent_ctx} | rest] ->
+        try do
+          # CRITICAL: Restore the span context before setting attributes/ending.
+          # Between :start and :stop events, callbacks (e.g., maybe_restore_ctx in
+          # AgentObs.LangChain) may overwrite the current OTel context. We must
+          # explicitly set our stored span as current so Tracer operates on it.
+          span_parent_ctx = OpenTelemetry.Tracer.set_current_span(parent_ctx, span_ctx)
+          OpenTelemetry.Ctx.attach(span_parent_ctx)
 
-            # Set attributes on the current span
-            Tracer.set_attributes(attributes)
+          attributes = Translator.from_stop_metadata(event_type, metadata, measurements)
 
-            # Set span status based on whether operation succeeded or failed
-            # According to OpenTelemetry spec, status should be Ok for successful operations
-            # and Error for failures. Check for :error key in metadata.
-            if Map.has_key?(metadata, :error) do
-              error_msg = format_error_message(metadata[:error])
-              Tracer.set_status(OpenTelemetry.status(:error, error_msg))
-            else
-              # Successful completion - set status to Ok
-              Tracer.set_status(OpenTelemetry.status(:ok))
-            end
+          # Set attributes on the current span (now guaranteed to be our span)
+          Tracer.set_attributes(attributes)
 
-            # End the span
-            Tracer.end_span()
+          # Set span status based on whether operation succeeded or failed
+          if Map.has_key?(metadata, :error) do
+            error_msg = format_error_message(metadata[:error])
+            Tracer.set_status(OpenTelemetry.status(:error, error_msg))
+          else
+            Tracer.set_status(OpenTelemetry.status(:ok))
+          end
 
-            # CRITICAL: Restore parent context so the next span at this level
-            # doesn't accidentally become a child of this span
-            OpenTelemetry.Ctx.attach(parent_ctx)
+          # End the span
+          Tracer.end_span()
+        after
+          # CRITICAL: Always restore parent context, even if translator raises
+          OpenTelemetry.Ctx.attach(parent_ctx)
 
+          if rest == [] do
             Process.delete(span_key)
-
-          other ->
-            Logger.error(
-              "AgentObs.Handlers.Phoenix: Expected {span_ctx, parent_ctx} tuple but got: #{inspect(other)}"
-            )
+          else
+            Process.put(span_key, rest)
+          end
         end
     end
 
@@ -222,43 +231,44 @@ defmodule AgentObs.Handlers.Phoenix do
   defp handle_exception(event_type, measurements, metadata) do
     span_key = span_context_key(event_type)
 
-    case Process.get(span_key) do
-      nil ->
+    case Process.get(span_key, []) do
+      [] ->
         Logger.warning(
           "AgentObs.Handlers.Phoenix: No active span found for #{event_type} :exception event"
         )
 
-      stored_value ->
-        # Extract span_ctx and parent_ctx from stored tuple
-        case stored_value do
-          {_span_ctx, parent_ctx} ->
-            # Get OpenInference-compatible exception attributes
-            attributes = Translator.from_exception_metadata(event_type, metadata, measurements)
-            Tracer.set_attributes(attributes)
+      [{span_ctx, parent_ctx} | rest] ->
+        try do
+          # Restore the span context (same reason as handle_stop - see comment there)
+          span_parent_ctx = OpenTelemetry.Tracer.set_current_span(parent_ctx, span_ctx)
+          OpenTelemetry.Ctx.attach(span_parent_ctx)
 
-            # Extract exception details with proper defaults
-            kind = metadata[:kind] || :error
-            reason = metadata[:reason] || "Unknown error"
-            stacktrace = metadata[:stacktrace] || []
+          # Get OpenInference-compatible exception attributes
+          attributes = Translator.from_exception_metadata(event_type, metadata, measurements)
+          Tracer.set_attributes(attributes)
 
-            # Record the exception in OpenTelemetry format
-            Tracer.record_exception(kind, reason, stacktrace)
+          # Extract exception details with proper defaults
+          kind = metadata[:kind] || :error
+          reason = metadata[:reason] || "Unknown error"
+          stacktrace = metadata[:stacktrace] || []
 
-            # Set error status with descriptive message
-            error_message = format_exception_message(kind, reason)
-            Tracer.set_status(OpenTelemetry.status(:error, error_message))
+          # Record the exception in OpenTelemetry format
+          Tracer.record_exception(kind, reason, stacktrace)
 
-            Tracer.end_span()
+          # Set error status with descriptive message
+          error_message = format_exception_message(kind, reason)
+          Tracer.set_status(OpenTelemetry.status(:error, error_message))
 
-            # Restore parent context
-            OpenTelemetry.Ctx.attach(parent_ctx)
+          Tracer.end_span()
+        after
+          # Always restore parent context
+          OpenTelemetry.Ctx.attach(parent_ctx)
 
+          if rest == [] do
             Process.delete(span_key)
-
-          other ->
-            Logger.error(
-              "AgentObs.Handlers.Phoenix: Expected {span_ctx, parent_ctx} tuple in exception handler but got: #{inspect(other)}"
-            )
+          else
+            Process.put(span_key, rest)
+          end
         end
     end
 

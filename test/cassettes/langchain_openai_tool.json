@@ -1,0 +1,371 @@
+{
+  "interactions": [
+    {
+      "recorded_at": "2026-02-18T16:32:35.433935Z",
+      "request": {
+        "body_json": {
+          "messages": [
+            {
+              "content": [
+                {
+                  "text": "What is the population of Tokyo? Use the lookup tool.",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "gpt-4o-mini",
+          "n": 1,
+          "stream": false,
+          "temperature": 1.0,
+          "tools": [
+            {
+              "function": {
+                "description": "Look up a fact",
+                "name": "lookup",
+                "parameters": {
+                  "properties": {
+                    "query": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "query"
+                  ],
+                  "type": "object"
+                },
+                "strict": false
+              },
+              "type": "function"
+            }
+          ]
+        },
+        "body_type": "json",
+        "headers": {
+          "accept": [
+            "application/json"
+          ],
+          "accept-encoding": [
+            "gzip"
+          ],
+          "content-type": [
+            "application/json"
+          ],
+          "user-agent": [
+            "req/0.5.16"
+          ]
+        },
+        "method": "POST",
+        "query_string": "",
+        "uri": "https://api.openai.com/v1/chat/completions"
+      },
+      "response": {
+        "body_json": {
+          "choices": [
+            {
+              "finish_reason": "tool_calls",
+              "index": 0,
+              "logprobs": null,
+              "message": {
+                "annotations": [],
+                "content": null,
+                "refusal": null,
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "function": {
+                      "arguments": "{\"query\":\"population of Tokyo\"}",
+                      "name": "lookup"
+                    },
+                    "id": "call_pXkKac7EsPpK9K6JnDHC2XdA",
+                    "type": "function"
+                  }
+                ]
+              }
+            }
+          ],
+          "created": 1771432354,
+          "id": "chatcmpl-DAelWABsVDcVCJ5UXrQsVFNH3J9HG",
+          "model": "gpt-4o-mini-2024-07-18",
+          "object": "chat.completion",
+          "service_tier": "default",
+          "system_fingerprint": "fp_373a14eb6f",
+          "usage": {
+            "completion_tokens": 15,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 0,
+              "rejected_prediction_tokens": 0
+            },
+            "prompt_tokens": 53,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 68
+          }
+        },
+        "body_type": "json",
+        "headers": {
+          "access-control-expose-headers": [
+            "X-Request-ID"
+          ],
+          "alt-svc": [
+            "h3=\":443\"; ma=86400"
+          ],
+          "cf-cache-status": [
+            "DYNAMIC"
+          ],
+          "cf-ray": [
+            "9cfeebd5fd8dcb1a-GIG"
+          ],
+          "connection": [
+            "keep-alive"
+          ],
+          "content-type": [
+            "application/json"
+          ],
+          "date": [
+            "Wed, 18 Feb 2026 16:32:35 GMT"
+          ],
+          "openai-processing-ms": [
+            "946"
+          ],
+          "openai-version": [
+            "2020-10-01"
+          ],
+          "server": [
+            "cloudflare"
+          ],
+          "strict-transport-security": [
+            "max-age=31536000; includeSubDomains; preload"
+          ],
+          "transfer-encoding": [
+            "chunked"
+          ],
+          "x-content-type-options": [
+            "nosniff"
+          ],
+          "x-openai-proxy-wasm": [
+            "v0.1"
+          ],
+          "x-ratelimit-limit-requests": [
+            "30000"
+          ],
+          "x-ratelimit-limit-tokens": [
+            "150000000"
+          ],
+          "x-ratelimit-remaining-requests": [
+            "29999"
+          ],
+          "x-ratelimit-remaining-tokens": [
+            "149999985"
+          ],
+          "x-ratelimit-reset-requests": [
+            "2ms"
+          ],
+          "x-ratelimit-reset-tokens": [
+            "0s"
+          ],
+          "x-request-id": [
+            "req_69d5c5ed2bab4d059aacae82560c5d29"
+          ]
+        },
+        "status": 200
+      }
+    },
+    {
+      "recorded_at": "2026-02-18T16:32:36.727982Z",
+      "request": {
+        "body_json": {
+          "messages": [
+            {
+              "content": [
+                {
+                  "text": "What is the population of Tokyo? Use the lookup tool.",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": null,
+              "role": "assistant",
+              "tool_calls": [
+                {
+                  "function": {
+                    "arguments": "{\"query\":\"population of Tokyo\"}",
+                    "name": "lookup"
+                  },
+                  "id": "call_pXkKac7EsPpK9K6JnDHC2XdA",
+                  "type": "function"
+                }
+              ]
+            },
+            {
+              "content": [
+                {
+                  "text": "Tokyo has a population of approximately 14 million people.",
+                  "type": "text"
+                }
+              ],
+              "role": "tool",
+              "tool_call_id": "call_pXkKac7EsPpK9K6JnDHC2XdA"
+            }
+          ],
+          "model": "gpt-4o-mini",
+          "n": 1,
+          "stream": false,
+          "temperature": 1.0,
+          "tools": [
+            {
+              "function": {
+                "description": "Look up a fact",
+                "name": "lookup",
+                "parameters": {
+                  "properties": {
+                    "query": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "query"
+                  ],
+                  "type": "object"
+                },
+                "strict": false
+              },
+              "type": "function"
+            }
+          ]
+        },
+        "body_type": "json",
+        "headers": {
+          "accept": [
+            "application/json"
+          ],
+          "accept-encoding": [
+            "gzip"
+          ],
+          "content-type": [
+            "application/json"
+          ],
+          "user-agent": [
+            "req/0.5.16"
+          ]
+        },
+        "method": "POST",
+        "query_string": "",
+        "uri": "https://api.openai.com/v1/chat/completions"
+      },
+      "response": {
+        "body_json": {
+          "choices": [
+            {
+              "finish_reason": "stop",
+              "index": 0,
+              "logprobs": null,
+              "message": {
+                "annotations": [],
+                "content": "The population of Tokyo is approximately 14 million people.",
+                "refusal": null,
+                "role": "assistant"
+              }
+            }
+          ],
+          "created": 1771432355,
+          "id": "chatcmpl-DAelXsnwsRSVzOtBEMY8Wt51UOg8c",
+          "model": "gpt-4o-mini-2024-07-18",
+          "object": "chat.completion",
+          "service_tier": "default",
+          "system_fingerprint": "fp_373a14eb6f",
+          "usage": {
+            "completion_tokens": 12,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 0,
+              "rejected_prediction_tokens": 0
+            },
+            "prompt_tokens": 86,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 98
+          }
+        },
+        "body_type": "json",
+        "headers": {
+          "access-control-expose-headers": [
+            "X-Request-ID"
+          ],
+          "alt-svc": [
+            "h3=\":443\"; ma=86400"
+          ],
+          "cf-cache-status": [
+            "DYNAMIC"
+          ],
+          "cf-ray": [
+            "9cfeebdd8e50cb1a-GIG"
+          ],
+          "connection": [
+            "keep-alive"
+          ],
+          "content-type": [
+            "application/json"
+          ],
+          "date": [
+            "Wed, 18 Feb 2026 16:32:36 GMT"
+          ],
+          "openai-processing-ms": [
+            "656"
+          ],
+          "openai-version": [
+            "2020-10-01"
+          ],
+          "server": [
+            "cloudflare"
+          ],
+          "strict-transport-security": [
+            "max-age=31536000; includeSubDomains; preload"
+          ],
+          "transfer-encoding": [
+            "chunked"
+          ],
+          "x-content-type-options": [
+            "nosniff"
+          ],
+          "x-openai-proxy-wasm": [
+            "v0.1"
+          ],
+          "x-ratelimit-limit-requests": [
+            "30000"
+          ],
+          "x-ratelimit-limit-tokens": [
+            "150000000"
+          ],
+          "x-ratelimit-remaining-requests": [
+            "29999"
+          ],
+          "x-ratelimit-remaining-tokens": [
+            "149999967"
+          ],
+          "x-ratelimit-reset-requests": [
+            "2ms"
+          ],
+          "x-ratelimit-reset-tokens": [
+            "0s"
+          ],
+          "x-request-id": [
+            "req_c12ca201d11a478c955fb053391f1a2f"
+          ]
+        },
+        "status": 200
+      }
+    }
+  ],
+  "version": "2.0"
+}
