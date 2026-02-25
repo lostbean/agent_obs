@@ -202,12 +202,32 @@ defmodule AgentObs.Sagents do
   runs. This creates proper parent-child span relationships across
   process boundaries.
 
+  When the current process has no OTel context in its process dictionary
+  (e.g., inside a `Task.async` that didn't propagate it), falls back to
+  a previously-snapshotted `:otel_ctx` already present in the context map.
+  This ensures trace continuity across the chain:
+  fork → init (consumes restore fns) → snapshot → new Task.async → fork again.
+
   Gracefully no-ops when OpenTelemetry is not loaded.
   """
   @impl true
   def on_fork_context(context, _config) do
     if otel_available?() do
-      otel_ctx = OpenTelemetry.Ctx.get_current()
+      # Prefer the live process-local OTel context. If the process has none
+      # (e.g., running inside a Task.async that didn't propagate it), fall
+      # back to a previously-snapshotted otel_ctx already in the context map.
+      # This handles the chain: fork → init (consumes restore fns) → snapshot
+      # → new Task.async → fork again — where the snapshot carries otel_ctx
+      # as data but the process dictionary is empty.
+      process_ctx = OpenTelemetry.Ctx.get_current()
+
+      otel_ctx =
+        if process_ctx == %{} do
+          Map.get(context, :otel_ctx, process_ctx)
+        else
+          process_ctx
+        end
+
       context = Map.put(context, :otel_ctx, otel_ctx)
 
       Sagents.AgentContext.add_restore_fn(context, fn ctx ->

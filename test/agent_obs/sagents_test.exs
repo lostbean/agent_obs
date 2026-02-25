@@ -297,6 +297,59 @@ defmodule AgentObs.SagentsTest do
       updated = AgentObs.Sagents.on_fork_context(context, config)
       assert is_map(updated.otel_ctx)
     end
+
+    test "uses otel_ctx from context map when process has no active OTel span" do
+      # Simulate the scenario: a process that has NO OTel in its process dictionary
+      # but DOES have a valid otel_ctx in the AgentContext map (carried from a
+      # previous fork_with_middleware that was consumed by init/1).
+
+      require OpenTelemetry.Tracer, as: Tracer
+      config = %{agent_id: "test", model: nil, trace_tools: true}
+
+      # Create a real OTel span and capture its context
+      parent_otel_ctx =
+        Tracer.with_span "parent_span" do
+          OpenTelemetry.Ctx.get_current()
+        end
+
+      # Extract the trace_id from the captured context for comparison.
+      # Attach temporarily to read the span, then detach.
+      token = OpenTelemetry.Ctx.attach(parent_otel_ctx)
+      parent_trace_id = OpenTelemetry.Tracer.current_span_ctx() |> elem(2)
+      OpenTelemetry.Ctx.detach(token)
+
+      # Now run on_fork_context in a fresh process that has NO OTel context
+      # in its process dictionary, but HAS otel_ctx in the context map.
+      task =
+        Task.async(fn ->
+          # Verify: this process has NO active OTel span
+          assert OpenTelemetry.Tracer.current_span_ctx() == :undefined
+
+          # Context map carries otel_ctx from a previous fork (as data, not process-local)
+          context_with_stale_otel = %{otel_ctx: parent_otel_ctx, app: "test"}
+
+          # Call on_fork_context — this is the function under test
+          forked = AgentObs.Sagents.on_fork_context(context_with_stale_otel, config)
+
+          # The forked context should preserve the ORIGINAL otel_ctx, not overwrite
+          # it with the empty process-local context
+          assert forked.otel_ctx == parent_otel_ctx
+
+          # Verify the restore function works: init a child and check trace continuity
+          child_task =
+            Task.async(fn ->
+              Sagents.AgentContext.init(forked)
+              child_span = OpenTelemetry.Tracer.current_span_ctx()
+              child_trace_id = if child_span != :undefined, do: elem(child_span, 2)
+              child_trace_id
+            end)
+
+          Task.await(child_task)
+        end)
+
+      child_trace_id = Task.await(task)
+      assert child_trace_id == parent_trace_id
+    end
   end
 
   describe "middleware behaviour compliance" do
