@@ -112,6 +112,56 @@ defmodule AgentObs.SagentsTest do
       Process.delete(span_key)
       :telemetry.detach(handler_id)
     end
+
+    test "syncs otel_ctx into AgentContext after creating agent span" do
+      require OpenTelemetry.Tracer, as: Tracer
+
+      # Initialize AgentContext with a stale otel_ctx (simulates what on_fork_context set)
+      stale_otel_ctx = %{stale: :parent_context}
+      Sagents.AgentContext.init(%{otel_ctx: stale_otel_ctx, app: "test"})
+
+      Tracer.with_span "parent_for_before_model" do
+        state =
+          State.new!(%{
+            agent_id: "ctx-sync-agent",
+            messages: [Message.new_user!("Hello")]
+          })
+
+        config = %{agent_id: "ctx-sync-agent", model: nil, trace_tools: true}
+
+        {:ok, _} = AgentObs.Sagents.before_model(state, config)
+
+        # After before_model, AgentContext's :otel_ctx should be the LIVE
+        # process context (with the agent span), not the stale one
+        updated_ctx = Sagents.AgentContext.get()
+        assert updated_ctx.app == "test"
+        assert updated_ctx.otel_ctx != stale_otel_ctx
+        assert updated_ctx.otel_ctx == OpenTelemetry.Ctx.get_current()
+      end
+
+      # Clean up
+      Process.delete({AgentObs.Sagents, :agent_span, "ctx-sync-agent"})
+    end
+
+    test "skips otel_ctx sync when AgentContext is not initialized" do
+      # Ensure no AgentContext exists
+      Process.delete({Sagents, :agent_context})
+
+      state =
+        State.new!(%{
+          agent_id: "no-ctx-agent",
+          messages: [Message.new_user!("Hello")]
+        })
+
+      config = %{agent_id: "no-ctx-agent", model: nil, trace_tools: true}
+
+      # Should not crash, and AgentContext should remain empty
+      {:ok, _} = AgentObs.Sagents.before_model(state, config)
+      assert Sagents.AgentContext.get() == %{}
+
+      # Clean up
+      Process.delete({AgentObs.Sagents, :agent_span, "no-ctx-agent"})
+    end
   end
 
   describe "after_model/2" do

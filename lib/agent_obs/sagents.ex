@@ -144,6 +144,16 @@ defmodule AgentObs.Sagents do
       }
     )
 
+    # Sync the live OTel context (now containing the agent span) back into
+    # AgentContext so downstream snapshots capture the correct parent.
+    if otel_available?() do
+      ctx = Sagents.AgentContext.get()
+
+      if map_size(ctx) > 0 do
+        Sagents.AgentContext.init(Map.put(ctx, :otel_ctx, OpenTelemetry.Ctx.get_current()))
+      end
+    end
+
     # Store metadata for after_model to close the span
     span_key = {__MODULE__, :agent_span, config.agent_id}
 
