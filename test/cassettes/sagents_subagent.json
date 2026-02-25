@@ -1,7 +1,7 @@
 {
   "interactions": [
     {
-      "recorded_at": "2026-02-18T16:32:29.998202Z",
+      "recorded_at": "2026-02-25T12:17:57.656752Z",
       "request": {
         "body_json": {
           "max_tokens": 4096,
@@ -16,7 +16,7 @@
               "role": "user"
             }
           ],
-          "model": "claude-3-5-haiku-latest",
+          "model": "claude-haiku-4-5-20251001",
           "stream": false,
           "system": [
             {
@@ -75,7 +75,7 @@
             "application/json"
           ],
           "user-agent": [
-            "req/0.5.16"
+            "req/0.5.17"
           ]
         },
         "method": "POST",
@@ -86,24 +86,20 @@
         "body_json": {
           "content": [
             {
-              "text": "I'll delegate this task to the researcher SubAgent to find out the height of the Eiffel Tower.",
-              "type": "text"
-            },
-            {
               "caller": {
                 "type": "direct"
               },
-              "id": "toolu_01EGXYRm6LKdqc7C94rve36L",
+              "id": "toolu_01LcuST2XRVz7BrLH9x6U6fu",
               "input": {
-                "instructions": "Find the exact height of the Eiffel Tower in meters.",
+                "instructions": "Find out how tall the Eiffel Tower is. Provide the height in both meters and feet if possible.",
                 "subagent_type": "researcher"
               },
               "name": "task",
               "type": "tool_use"
             }
           ],
-          "id": "msg_0176Nx3tarFbyh6XreQ3SKxK",
-          "model": "claude-3-5-haiku-20241022",
+          "id": "msg_01GQ71Pvh8z4sy61SodagRrH",
+          "model": "claude-haiku-4-5-20251001",
           "role": "assistant",
           "stop_reason": "tool_use",
           "stop_sequence": null,
@@ -116,8 +112,8 @@
             "cache_creation_input_tokens": 0,
             "cache_read_input_tokens": 0,
             "inference_geo": "not_available",
-            "input_tokens": 683,
-            "output_tokens": 108,
+            "input_tokens": 915,
+            "output_tokens": 95,
             "service_tier": "standard"
           }
         },
@@ -127,22 +123,22 @@
             "a8b30265-cdb3-4bc6-8798-158fb659a7f5"
           ],
           "anthropic-ratelimit-input-tokens-limit": [
-            "400000"
+            "4000000"
           ],
           "anthropic-ratelimit-input-tokens-remaining": [
-            "400000"
+            "4000000"
           ],
           "anthropic-ratelimit-input-tokens-reset": [
-            "2026-02-18T16:32:28Z"
+            "2026-02-25T12:17:57Z"
           ],
           "anthropic-ratelimit-output-tokens-limit": [
-            "80000"
+            "800000"
           ],
           "anthropic-ratelimit-output-tokens-remaining": [
-            "80000"
+            "800000"
           ],
           "anthropic-ratelimit-output-tokens-reset": [
-            "2026-02-18T16:32:29Z"
+            "2026-02-25T12:17:57Z"
           ],
           "anthropic-ratelimit-requests-limit": [
             "4000"
@@ -151,22 +147,22 @@
             "3999"
           ],
           "anthropic-ratelimit-requests-reset": [
-            "2026-02-18T16:32:28Z"
+            "2026-02-25T12:17:56Z"
           ],
           "anthropic-ratelimit-tokens-limit": [
-            "480000"
+            "4800000"
           ],
           "anthropic-ratelimit-tokens-remaining": [
-            "480000"
+            "4800000"
           ],
           "anthropic-ratelimit-tokens-reset": [
-            "2026-02-18T16:32:28Z"
+            "2026-02-25T12:17:57Z"
           ],
           "cf-cache-status": [
             "DYNAMIC"
           ],
           "cf-ray": [
-            "9cfeebafc8e282e8-GIG"
+            "9d372476d9f2f46b-GRU"
           ],
           "connection": [
             "keep-alive"
@@ -178,10 +174,10 @@
             "application/json"
           ],
           "date": [
-            "Wed, 18 Feb 2026 16:32:29 GMT"
+            "Wed, 25 Feb 2026 12:17:57 GMT"
           ],
           "request-id": [
-            "req_011CYFrZekbYmwGFuPLy1qja"
+            "req_011CYUmpJvsaq6dLL9uA7qTy"
           ],
           "server": [
             "cloudflare"
@@ -193,7 +189,7 @@
             "chunked"
           ],
           "x-envoy-upstream-service-time": [
-            "1747"
+            "1057"
           ],
           "x-robots-tag": [
             "none"
@@ -203,7 +199,7 @@
       }
     },
     {
-      "recorded_at": "2026-02-18T16:32:32.570501Z",
+      "recorded_at": "2026-02-25T12:17:58.474574Z",
       "request": {
         "body_json": {
           "max_tokens": 4096,
@@ -211,7 +207,7 @@
             {
               "content": [
                 {
-                  "text": "Find the exact height of the Eiffel Tower in meters.",
+                  "text": "Find out how tall the Eiffel Tower is. Provide the height in both meters and feet if possible.",
                   "type": "text"
                 }
               ],
@@ -220,13 +216,9 @@
             {
               "content": [
                 {
-                  "text": "I'll delegate this task to the researcher SubAgent to find out the height of the Eiffel Tower.",
-                  "type": "text"
-                },
-                {
-                  "id": "toolu_01EGXYRm6LKdqc7C94rve36L",
+                  "id": "toolu_01LcuST2XRVz7BrLH9x6U6fu",
                   "input": {
-                    "instructions": "Find the exact height of the Eiffel Tower in meters.",
+                    "instructions": "Find out how tall the Eiffel Tower is. Provide the height in both meters and feet if possible.",
                     "subagent_type": "researcher"
                   },
                   "name": "task",
@@ -245,14 +237,14 @@
                     }
                   ],
                   "is_error": true,
-                  "tool_use_id": "toolu_01EGXYRm6LKdqc7C94rve36L",
+                  "tool_use_id": "toolu_01LcuST2XRVz7BrLH9x6U6fu",
                   "type": "tool_result"
                 }
               ],
               "role": "user"
             }
           ],
-          "model": "claude-3-5-haiku-latest",
+          "model": "claude-haiku-4-5-20251001",
           "stream": false,
           "system": [
             {
@@ -297,7 +289,7 @@
             "application/json"
           ],
           "user-agent": [
-            "req/0.5.16"
+            "req/0.5.17"
           ]
         },
         "method": "POST",
@@ -308,23 +300,23 @@
         "body_json": {
           "content": [
             {
-              "text": "I apologize for the error. I'll use the lookup function to find the height of the Eiffel Tower.",
+              "text": "Let me use the lookup tool to find this information:",
               "type": "text"
             },
             {
               "caller": {
                 "type": "direct"
               },
-              "id": "toolu_01X8BD8aDu2dgpesibryxGg8",
+              "id": "toolu_01HuptMCLhVMrLu7xbAzHXmZ",
               "input": {
-                "query": "Eiffel Tower exact height in meters"
+                "query": "Eiffel Tower height meters feet"
               },
               "name": "lookup",
               "type": "tool_use"
             }
           ],
-          "id": "msg_018irUd6voEuLGaGmzrmNCUT",
-          "model": "claude-3-5-haiku-20241022",
+          "id": "msg_01Wb9DfEkmy62bmNfFxC99JJ",
+          "model": "claude-haiku-4-5-20251001",
           "role": "assistant",
           "stop_reason": "tool_use",
           "stop_sequence": null,
@@ -337,8 +329,8 @@
             "cache_creation_input_tokens": 0,
             "cache_read_input_tokens": 0,
             "inference_geo": "not_available",
-            "input_tokens": 489,
-            "output_tokens": 86,
+            "input_tokens": 719,
+            "output_tokens": 70,
             "service_tier": "standard"
           }
         },
@@ -348,22 +340,22 @@
             "a8b30265-cdb3-4bc6-8798-158fb659a7f5"
           ],
           "anthropic-ratelimit-input-tokens-limit": [
-            "400000"
+            "4000000"
           ],
           "anthropic-ratelimit-input-tokens-remaining": [
-            "400000"
+            "4000000"
           ],
           "anthropic-ratelimit-input-tokens-reset": [
-            "2026-02-18T16:32:31Z"
+            "2026-02-25T12:17:58Z"
           ],
           "anthropic-ratelimit-output-tokens-limit": [
-            "80000"
+            "800000"
           ],
           "anthropic-ratelimit-output-tokens-remaining": [
-            "80000"
+            "800000"
           ],
           "anthropic-ratelimit-output-tokens-reset": [
-            "2026-02-18T16:32:32Z"
+            "2026-02-25T12:17:58Z"
           ],
           "anthropic-ratelimit-requests-limit": [
             "4000"
@@ -372,22 +364,22 @@
             "3999"
           ],
           "anthropic-ratelimit-requests-reset": [
-            "2026-02-18T16:32:30Z"
+            "2026-02-25T12:17:57Z"
           ],
           "anthropic-ratelimit-tokens-limit": [
-            "480000"
+            "4800000"
           ],
           "anthropic-ratelimit-tokens-remaining": [
-            "480000"
+            "4800000"
           ],
           "anthropic-ratelimit-tokens-reset": [
-            "2026-02-18T16:32:31Z"
+            "2026-02-25T12:17:58Z"
           ],
           "cf-cache-status": [
             "DYNAMIC"
           ],
           "cf-ray": [
-            "9cfeebbb9e2682e8-GIG"
+            "9d37247f6f6df46b-GRU"
           ],
           "connection": [
             "keep-alive"
@@ -399,10 +391,10 @@
             "application/json"
           ],
           "date": [
-            "Wed, 18 Feb 2026 16:32:32 GMT"
+            "Wed, 25 Feb 2026 12:17:58 GMT"
           ],
           "request-id": [
-            "req_011CYFrZo2gRaRRNxxPfvW9r"
+            "req_011CYUmpQn721Yo7e7ySCkqi"
           ],
           "server": [
             "cloudflare"
@@ -414,7 +406,7 @@
             "chunked"
           ],
           "x-envoy-upstream-service-time": [
-            "2395"
+            "668"
           ],
           "x-robots-tag": [
             "none"
@@ -424,7 +416,7 @@
       }
     },
     {
-      "recorded_at": "2026-02-18T16:32:34.116871Z",
+      "recorded_at": "2026-02-25T12:17:59.223866Z",
       "request": {
         "body_json": {
           "max_tokens": 4096,
@@ -432,7 +424,7 @@
             {
               "content": [
                 {
-                  "text": "Find the exact height of the Eiffel Tower in meters.",
+                  "text": "Find out how tall the Eiffel Tower is. Provide the height in both meters and feet if possible.",
                   "type": "text"
                 }
               ],
@@ -441,13 +433,9 @@
             {
               "content": [
                 {
-                  "text": "I'll delegate this task to the researcher SubAgent to find out the height of the Eiffel Tower.",
-                  "type": "text"
-                },
-                {
-                  "id": "toolu_01EGXYRm6LKdqc7C94rve36L",
+                  "id": "toolu_01LcuST2XRVz7BrLH9x6U6fu",
                   "input": {
-                    "instructions": "Find the exact height of the Eiffel Tower in meters.",
+                    "instructions": "Find out how tall the Eiffel Tower is. Provide the height in both meters and feet if possible.",
                     "subagent_type": "researcher"
                   },
                   "name": "task",
@@ -466,7 +454,7 @@
                     }
                   ],
                   "is_error": true,
-                  "tool_use_id": "toolu_01EGXYRm6LKdqc7C94rve36L",
+                  "tool_use_id": "toolu_01LcuST2XRVz7BrLH9x6U6fu",
                   "type": "tool_result"
                 }
               ],
@@ -475,13 +463,13 @@
             {
               "content": [
                 {
-                  "text": "I apologize for the error. I'll use the lookup function to find the height of the Eiffel Tower.",
+                  "text": "Let me use the lookup tool to find this information:",
                   "type": "text"
                 },
                 {
-                  "id": "toolu_01X8BD8aDu2dgpesibryxGg8",
+                  "id": "toolu_01HuptMCLhVMrLu7xbAzHXmZ",
                   "input": {
-                    "query": "Eiffel Tower exact height in meters"
+                    "query": "Eiffel Tower height meters feet"
                   },
                   "name": "lookup",
                   "type": "tool_use"
@@ -499,14 +487,14 @@
                     }
                   ],
                   "is_error": false,
-                  "tool_use_id": "toolu_01X8BD8aDu2dgpesibryxGg8",
+                  "tool_use_id": "toolu_01HuptMCLhVMrLu7xbAzHXmZ",
                   "type": "tool_result"
                 }
               ],
               "role": "user"
             }
           ],
-          "model": "claude-3-5-haiku-latest",
+          "model": "claude-haiku-4-5-20251001",
           "stream": false,
           "system": [
             {
@@ -551,7 +539,7 @@
             "application/json"
           ],
           "user-agent": [
-            "req/0.5.16"
+            "req/0.5.17"
           ]
         },
         "method": "POST",
@@ -562,12 +550,12 @@
         "body_json": {
           "content": [
             {
-              "text": "The Eiffel Tower is exactly 330 meters (1,083 feet) tall. This makes it the tallest structure in Paris and was the tallest man-made structure in the world when it was completed in 1889 for the World's Fair.",
+              "text": "The **Eiffel Tower is 330 meters tall**, which is approximately **1,083 feet** tall.",
               "type": "text"
             }
           ],
-          "id": "msg_01UvdPDR8F3XnEw5H6dFtZJT",
-          "model": "claude-3-5-haiku-20241022",
+          "id": "msg_01X6KSCSSD4DKhUaUKqPL5uG",
+          "model": "claude-haiku-4-5-20251001",
           "role": "assistant",
           "stop_reason": "end_turn",
           "stop_sequence": null,
@@ -580,8 +568,8 @@
             "cache_creation_input_tokens": 0,
             "cache_read_input_tokens": 0,
             "inference_geo": "not_available",
-            "input_tokens": 598,
-            "output_tokens": 61,
+            "input_tokens": 813,
+            "output_tokens": 29,
             "service_tier": "standard"
           }
         },
@@ -591,22 +579,22 @@
             "a8b30265-cdb3-4bc6-8798-158fb659a7f5"
           ],
           "anthropic-ratelimit-input-tokens-limit": [
-            "400000"
+            "4000000"
           ],
           "anthropic-ratelimit-input-tokens-remaining": [
-            "400000"
+            "4000000"
           ],
           "anthropic-ratelimit-input-tokens-reset": [
-            "2026-02-18T16:32:33Z"
+            "2026-02-25T12:17:58Z"
           ],
           "anthropic-ratelimit-output-tokens-limit": [
-            "80000"
+            "800000"
           ],
           "anthropic-ratelimit-output-tokens-remaining": [
-            "80000"
+            "800000"
           ],
           "anthropic-ratelimit-output-tokens-reset": [
-            "2026-02-18T16:32:34Z"
+            "2026-02-25T12:17:59Z"
           ],
           "anthropic-ratelimit-requests-limit": [
             "4000"
@@ -615,22 +603,22 @@
             "3999"
           ],
           "anthropic-ratelimit-requests-reset": [
-            "2026-02-18T16:32:32Z"
+            "2026-02-25T12:17:58Z"
           ],
           "anthropic-ratelimit-tokens-limit": [
-            "480000"
+            "4800000"
           ],
           "anthropic-ratelimit-tokens-remaining": [
-            "480000"
+            "4800000"
           ],
           "anthropic-ratelimit-tokens-reset": [
-            "2026-02-18T16:32:33Z"
+            "2026-02-25T12:17:58Z"
           ],
           "cf-cache-status": [
             "DYNAMIC"
           ],
           "cf-ray": [
-            "9cfeebcbbe6b82e8-GIG"
+            "9d3724848f7ff46b-GRU"
           ],
           "connection": [
             "keep-alive"
@@ -642,10 +630,10 @@
             "application/json"
           ],
           "date": [
-            "Wed, 18 Feb 2026 16:32:34 GMT"
+            "Wed, 25 Feb 2026 12:17:59 GMT"
           ],
           "request-id": [
-            "req_011CYFrZysYaif3RV6btLHiU"
+            "req_011CYUmpUGCr9hvkviZT17Eq"
           ],
           "server": [
             "cloudflare"
@@ -657,7 +645,7 @@
             "chunked"
           ],
           "x-envoy-upstream-service-time": [
-            "1398"
+            "599"
           ],
           "x-robots-tag": [
             "none"

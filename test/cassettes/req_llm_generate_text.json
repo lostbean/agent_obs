@@ -1,17 +1,17 @@
 {
   "interactions": [
     {
-      "recorded_at": "2026-02-18T16:32:28.101803Z",
+      "recorded_at": "2026-02-25T12:16:48.835756Z",
       "request": {
         "body_json": {
-          "max_tokens": 8192,
+          "max_tokens": 64000,
           "messages": [
             {
               "content": "Say hello in one word",
               "role": "user"
             }
           ],
-          "model": "claude-3-5-haiku-20241022",
+          "model": "claude-haiku-4-5-20251001",
           "stream": false
         },
         "body_type": "json",
@@ -26,7 +26,7 @@
             "application/json"
           ],
           "user-agent": [
-            "req/0.5.16"
+            "req/0.5.17"
           ]
         },
         "method": "POST",
@@ -37,12 +37,12 @@
         "body_json": {
           "content": [
             {
-              "text": "Hi!",
+              "text": "Hello!",
               "type": "text"
             }
           ],
-          "id": "msg_01XwnX29Mta5asJEcLShEYyJ",
-          "model": "claude-3-5-haiku-20241022",
+          "id": "msg_01GLsrXsubecccnFpqFbNtca",
+          "model": "claude-haiku-4-5-20251001",
           "role": "assistant",
           "stop_reason": "end_turn",
           "stop_sequence": null,
@@ -66,22 +66,22 @@
             "a8b30265-cdb3-4bc6-8798-158fb659a7f5"
           ],
           "anthropic-ratelimit-input-tokens-limit": [
-            "400000"
+            "4000000"
           ],
           "anthropic-ratelimit-input-tokens-remaining": [
-            "400000"
+            "4000000"
           ],
           "anthropic-ratelimit-input-tokens-reset": [
-            "2026-02-18T16:32:27Z"
+            "2026-02-25T12:16:48Z"
           ],
           "anthropic-ratelimit-output-tokens-limit": [
-            "80000"
+            "800000"
           ],
           "anthropic-ratelimit-output-tokens-remaining": [
-            "80000"
+            "800000"
           ],
           "anthropic-ratelimit-output-tokens-reset": [
-            "2026-02-18T16:32:28Z"
+            "2026-02-25T12:16:48Z"
           ],
           "anthropic-ratelimit-requests-limit": [
             "4000"
@@ -90,22 +90,22 @@
             "3999"
           ],
           "anthropic-ratelimit-requests-reset": [
-            "2026-02-18T16:32:27Z"
+            "2026-02-25T12:16:48Z"
           ],
           "anthropic-ratelimit-tokens-limit": [
-            "480000"
+            "4800000"
           ],
           "anthropic-ratelimit-tokens-remaining": [
-            "480000"
+            "4800000"
           ],
           "anthropic-ratelimit-tokens-reset": [
-            "2026-02-18T16:32:27Z"
+            "2026-02-25T12:16:48Z"
           ],
           "cf-cache-status": [
             "DYNAMIC"
           ],
           "cf-ray": [
-            "9cfeebabab9d82e8-GIG"
+            "9d3722cd3a0237a6-GRU"
           ],
           "connection": [
             "keep-alive"
@@ -117,10 +117,10 @@
             "application/json"
           ],
           "date": [
-            "Wed, 18 Feb 2026 16:32:28 GMT"
+            "Wed, 25 Feb 2026 12:16:48 GMT"
           ],
           "request-id": [
-            "req_011CYFrZbvwQbkVJeMFiQm2E"
+            "req_011CYUmjHmXrJe6MthBUAxMN"
           ],
           "server": [
             "cloudflare"
@@ -132,7 +132,7 @@
             "chunked"
           ],
           "x-envoy-upstream-service-time": [
-            "513"
+            "497"
           ],
           "x-robots-tag": [
             "none"

@@ -939,7 +939,7 @@ defmodule AgentObs.ReqLLMTest do
     defp get_test_model do
       cond do
         System.get_env("ANTHROPIC_API_KEY") ->
-          "anthropic:claude-3-5-haiku-latest"
+          "anthropic:claude-haiku-4-5-20251001"
 
         System.get_env("OPENAI_API_KEY") ->
           "openai:gpt-4o-mini"

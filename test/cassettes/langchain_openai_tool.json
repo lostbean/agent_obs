@@ -1,7 +1,7 @@
 {
   "interactions": [
     {
-      "recorded_at": "2026-02-18T16:32:35.433935Z",
+      "recorded_at": "2026-02-25T12:16:45.134248Z",
       "request": {
         "body_json": {
           "messages": [
@@ -53,7 +53,7 @@
             "application/json"
           ],
           "user-agent": [
-            "req/0.5.16"
+            "req/0.5.17"
           ]
         },
         "method": "POST",
@@ -78,19 +78,19 @@
                       "arguments": "{\"query\":\"population of Tokyo\"}",
                       "name": "lookup"
                     },
-                    "id": "call_pXkKac7EsPpK9K6JnDHC2XdA",
+                    "id": "call_VlwCO2YevPqlV8xfvll50EoS",
                     "type": "function"
                   }
                 ]
               }
             }
           ],
-          "created": 1771432354,
-          "id": "chatcmpl-DAelWABsVDcVCJ5UXrQsVFNH3J9HG",
+          "created": 1772021804,
+          "id": "chatcmpl-DD86m74JPonM8dPfldlvFU5a648Pv",
           "model": "gpt-4o-mini-2024-07-18",
           "object": "chat.completion",
           "service_tier": "default",
-          "system_fingerprint": "fp_373a14eb6f",
+          "system_fingerprint": "fp_4ea526dd98",
           "usage": {
             "completion_tokens": 15,
             "completion_tokens_details": {
@@ -119,7 +119,7 @@
             "DYNAMIC"
           ],
           "cf-ray": [
-            "9cfeebd5fd8dcb1a-GIG"
+            "9d3722b1483ef1bb-GRU"
           ],
           "connection": [
             "keep-alive"
@@ -128,16 +128,25 @@
             "application/json"
           ],
           "date": [
-            "Wed, 18 Feb 2026 16:32:35 GMT"
+            "Wed, 25 Feb 2026 12:16:45 GMT"
+          ],
+          "openai-organization": [
+            "kurtosis-technologies"
           ],
           "openai-processing-ms": [
-            "946"
+            "493"
+          ],
+          "openai-project": [
+            "proj_r9Vt3TLWTxOkepnGXBkmuvNn"
           ],
           "openai-version": [
             "2020-10-01"
           ],
           "server": [
             "cloudflare"
+          ],
+          "set-cookie": [
+            "__cf_bm=x6X0m6r0f6fGQXInHCW6h3s1ACLKsWy0IYzAEm7jOhM-1772021803.723892-1.0.1.1-zf_Qi.tExpogfLQ8Jq1FpfQk3oX0XhO3PrvylwMpNSH608_AlZGMQLOuNpXIbZvyyyHngorCrcMbvsO3kWf16dZBiHxXIM7tS2NQ2ODur8hIaAcqFbGebsUffBdo7JcR; HttpOnly; Secure; Path=/; Domain=api.openai.com; Expires=Wed, 25 Feb 2026 12:46:45 GMT"
           ],
           "strict-transport-security": [
             "max-age=31536000; includeSubDomains; preload"
@@ -170,14 +179,14 @@
             "0s"
           ],
           "x-request-id": [
-            "req_69d5c5ed2bab4d059aacae82560c5d29"
+            "req_7e88657110b54b6f8d9373df143a9c19"
           ]
         },
         "status": 200
       }
     },
     {
-      "recorded_at": "2026-02-18T16:32:36.727982Z",
+      "recorded_at": "2026-02-25T12:16:46.572407Z",
       "request": {
         "body_json": {
           "messages": [
@@ -199,7 +208,7 @@
                     "arguments": "{\"query\":\"population of Tokyo\"}",
                     "name": "lookup"
                   },
-                  "id": "call_pXkKac7EsPpK9K6JnDHC2XdA",
+                  "id": "call_VlwCO2YevPqlV8xfvll50EoS",
                   "type": "function"
                 }
               ]
@@ -212,7 +221,7 @@
                 }
               ],
               "role": "tool",
-              "tool_call_id": "call_pXkKac7EsPpK9K6JnDHC2XdA"
+              "tool_call_id": "call_VlwCO2YevPqlV8xfvll50EoS"
             }
           ],
           "model": "gpt-4o-mini",
@@ -253,7 +262,7 @@
             "application/json"
           ],
           "user-agent": [
-            "req/0.5.16"
+            "req/0.5.17"
           ]
         },
         "method": "POST",
@@ -275,12 +284,12 @@
               }
             }
           ],
-          "created": 1771432355,
-          "id": "chatcmpl-DAelXsnwsRSVzOtBEMY8Wt51UOg8c",
+          "created": 1772021806,
+          "id": "chatcmpl-DD86ou6r5DWRxDS2ftX8JmQZsS8Lb",
           "model": "gpt-4o-mini-2024-07-18",
           "object": "chat.completion",
           "service_tier": "default",
-          "system_fingerprint": "fp_373a14eb6f",
+          "system_fingerprint": "fp_4ea526dd98",
           "usage": {
             "completion_tokens": 12,
             "completion_tokens_details": {
@@ -309,7 +318,7 @@
             "DYNAMIC"
           ],
           "cf-ray": [
-            "9cfeebdd8e50cb1a-GIG"
+            "9d3722ba2d32f1bb-GRU"
           ],
           "connection": [
             "keep-alive"
@@ -318,16 +327,25 @@
             "application/json"
           ],
           "date": [
-            "Wed, 18 Feb 2026 16:32:36 GMT"
+            "Wed, 25 Feb 2026 12:16:46 GMT"
+          ],
+          "openai-organization": [
+            "kurtosis-technologies"
           ],
           "openai-processing-ms": [
-            "656"
+            "477"
+          ],
+          "openai-project": [
+            "proj_r9Vt3TLWTxOkepnGXBkmuvNn"
           ],
           "openai-version": [
             "2020-10-01"
           ],
           "server": [
             "cloudflare"
+          ],
+          "set-cookie": [
+            "__cf_bm=M.nZpPiddMJMfdZ.XMawz3mrL1KPAh0Z_P3u6RJHBnA-1772021805.1495306-1.0.1.1-0jDr20NmkHxxWtNmZhfDYRdvGyxjjSLZGjPsdDvI_UPZTO6gv6dvyGcKl75qty33GLNbp79nV4j3tgAc.1p892msIXmRlVf0lpDFQDj07WG9dTo1sntUl2vD.bNAaj9W; HttpOnly; Secure; Path=/; Domain=api.openai.com; Expires=Wed, 25 Feb 2026 12:46:46 GMT"
           ],
           "strict-transport-security": [
             "max-age=31536000; includeSubDomains; preload"
@@ -360,7 +378,7 @@
             "0s"
           ],
           "x-request-id": [
-            "req_c12ca201d11a478c955fb053391f1a2f"
+            "req_3672df8000e447f0b73ec8d987dd409a"
           ]
         },
         "status": 200

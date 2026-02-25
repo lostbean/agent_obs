@@ -1,7 +1,7 @@
 {
   "interactions": [
     {
-      "recorded_at": "2026-02-18T16:32:23.014236Z",
+      "recorded_at": "2026-02-25T12:17:55.265650Z",
       "request": {
         "body_json": {
           "max_tokens": 4096,
@@ -16,7 +16,7 @@
               "role": "user"
             }
           ],
-          "model": "claude-3-5-haiku-latest",
+          "model": "claude-haiku-4-5-20251001",
           "stream": false,
           "system": [
             {
@@ -76,7 +76,7 @@
             "application/json"
           ],
           "user-agent": [
-            "req/0.5.16"
+            "req/0.5.17"
           ]
         },
         "method": "POST",
@@ -87,249 +87,21 @@
         "body_json": {
           "content": [
             {
-              "text": "I'll help you get the weather and time for San Francisco by using both available tools.\n\nFirst, let's check the weather:",
-              "type": "text"
-            },
-            {
               "caller": {
                 "type": "direct"
               },
-              "id": "toolu_01VToT8Kf5U2KEHpqz8DrnaL",
+              "id": "toolu_01QHp5qo8pCSCCs6Gvu63zgx",
               "input": {
                 "city": "San Francisco"
               },
               "name": "get_weather",
               "type": "tool_use"
-            }
-          ],
-          "id": "msg_014RfXCNTEbxVnUWSQ2ZNAo9",
-          "model": "claude-3-5-haiku-20241022",
-          "role": "assistant",
-          "stop_reason": "tool_use",
-          "stop_sequence": null,
-          "type": "message",
-          "usage": {
-            "cache_creation": {
-              "ephemeral_1h_input_tokens": 0,
-              "ephemeral_5m_input_tokens": 0
-            },
-            "cache_creation_input_tokens": 0,
-            "cache_read_input_tokens": 0,
-            "inference_geo": "not_available",
-            "input_tokens": 400,
-            "output_tokens": 82,
-            "service_tier": "standard"
-          }
-        },
-        "body_type": "json",
-        "headers": {
-          "anthropic-organization-id": [
-            "a8b30265-cdb3-4bc6-8798-158fb659a7f5"
-          ],
-          "anthropic-ratelimit-input-tokens-limit": [
-            "400000"
-          ],
-          "anthropic-ratelimit-input-tokens-remaining": [
-            "400000"
-          ],
-          "anthropic-ratelimit-input-tokens-reset": [
-            "2026-02-18T16:32:21Z"
-          ],
-          "anthropic-ratelimit-output-tokens-limit": [
-            "80000"
-          ],
-          "anthropic-ratelimit-output-tokens-remaining": [
-            "80000"
-          ],
-          "anthropic-ratelimit-output-tokens-reset": [
-            "2026-02-18T16:32:22Z"
-          ],
-          "anthropic-ratelimit-requests-limit": [
-            "4000"
-          ],
-          "anthropic-ratelimit-requests-remaining": [
-            "3999"
-          ],
-          "anthropic-ratelimit-requests-reset": [
-            "2026-02-18T16:32:20Z"
-          ],
-          "anthropic-ratelimit-tokens-limit": [
-            "480000"
-          ],
-          "anthropic-ratelimit-tokens-remaining": [
-            "480000"
-          ],
-          "anthropic-ratelimit-tokens-reset": [
-            "2026-02-18T16:32:21Z"
-          ],
-          "cf-cache-status": [
-            "DYNAMIC"
-          ],
-          "cf-ray": [
-            "9cfeeb6b695482e8-GIG"
-          ],
-          "connection": [
-            "keep-alive"
-          ],
-          "content-security-policy": [
-            "default-src 'none'; frame-ancestors 'none'"
-          ],
-          "content-type": [
-            "application/json"
-          ],
-          "date": [
-            "Wed, 18 Feb 2026 16:32:22 GMT"
-          ],
-          "request-id": [
-            "req_011CYFrZ471ffga9vz3SVqhn"
-          ],
-          "server": [
-            "cloudflare"
-          ],
-          "strict-transport-security": [
-            "max-age=31536000; includeSubDomains; preload"
-          ],
-          "transfer-encoding": [
-            "chunked"
-          ],
-          "x-envoy-upstream-service-time": [
-            "5665"
-          ],
-          "x-robots-tag": [
-            "none"
-          ]
-        },
-        "status": 200
-      }
-    },
-    {
-      "recorded_at": "2026-02-18T16:32:24.315165Z",
-      "request": {
-        "body_json": {
-          "max_tokens": 4096,
-          "messages": [
-            {
-              "content": [
-                {
-                  "text": "What's the weather and time in San Francisco? Use both tools.",
-                  "type": "text"
-                }
-              ],
-              "role": "user"
-            },
-            {
-              "content": [
-                {
-                  "text": "I'll help you get the weather and time for San Francisco by using both available tools.\n\nFirst, let's check the weather:",
-                  "type": "text"
-                },
-                {
-                  "id": "toolu_01VToT8Kf5U2KEHpqz8DrnaL",
-                  "input": {
-                    "city": "San Francisco"
-                  },
-                  "name": "get_weather",
-                  "type": "tool_use"
-                }
-              ],
-              "role": "assistant"
-            },
-            {
-              "content": [
-                {
-                  "content": [
-                    {
-                      "text": "72°F and sunny",
-                      "type": "text"
-                    }
-                  ],
-                  "is_error": false,
-                  "tool_use_id": "toolu_01VToT8Kf5U2KEHpqz8DrnaL",
-                  "type": "tool_result"
-                }
-              ],
-              "role": "user"
-            }
-          ],
-          "model": "claude-3-5-haiku-latest",
-          "stream": false,
-          "system": [
-            {
-              "text": "You are a helpful assistant.",
-              "type": "text"
-            }
-          ],
-          "temperature": 1.0,
-          "tools": [
-            {
-              "description": "Get current weather for a city",
-              "input_schema": {
-                "properties": {
-                  "city": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "city"
-                ],
-                "type": "object"
-              },
-              "name": "get_weather"
-            },
-            {
-              "description": "Get current time in a city",
-              "input_schema": {
-                "properties": {
-                  "city": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "city"
-                ],
-                "type": "object"
-              },
-              "name": "get_time"
-            }
-          ]
-        },
-        "body_type": "json",
-        "headers": {
-          "accept": [
-            "application/json"
-          ],
-          "accept-encoding": [
-            "gzip"
-          ],
-          "anthropic-beta": [
-            "structured-outputs-2025-11-13"
-          ],
-          "anthropic-version": [
-            "2023-06-01"
-          ],
-          "content-type": [
-            "application/json"
-          ],
-          "user-agent": [
-            "req/0.5.16"
-          ]
-        },
-        "method": "POST",
-        "query_string": "",
-        "uri": "https://api.anthropic.com/v1/messages"
-      },
-      "response": {
-        "body_json": {
-          "content": [
-            {
-              "text": "Now, let's get the current time:",
-              "type": "text"
             },
             {
               "caller": {
                 "type": "direct"
               },
-              "id": "toolu_01W15RH5CPczoTg6GPM8TTRQ",
+              "id": "toolu_01DxRGY2pTVSKCMtL8WU3Syc",
               "input": {
                 "city": "San Francisco"
               },
@@ -337,8 +109,8 @@
               "type": "tool_use"
             }
           ],
-          "id": "msg_01JHD8JaXgSsPcbYEmboe9NM",
-          "model": "claude-3-5-haiku-20241022",
+          "id": "msg_01Xo9iCKkWgn7v5GkizfoUSv",
+          "model": "claude-haiku-4-5-20251001",
           "role": "assistant",
           "stop_reason": "tool_use",
           "stop_sequence": null,
@@ -351,8 +123,8 @@
             "cache_creation_input_tokens": 0,
             "cache_read_input_tokens": 0,
             "inference_geo": "not_available",
-            "input_tokens": 498,
-            "output_tokens": 65,
+            "input_tokens": 632,
+            "output_tokens": 92,
             "service_tier": "standard"
           }
         },
@@ -362,22 +134,22 @@
             "a8b30265-cdb3-4bc6-8798-158fb659a7f5"
           ],
           "anthropic-ratelimit-input-tokens-limit": [
-            "400000"
+            "4000000"
           ],
           "anthropic-ratelimit-input-tokens-remaining": [
-            "400000"
+            "4000000"
           ],
           "anthropic-ratelimit-input-tokens-reset": [
-            "2026-02-18T16:32:23Z"
+            "2026-02-25T12:17:54Z"
           ],
           "anthropic-ratelimit-output-tokens-limit": [
-            "80000"
+            "800000"
           ],
           "anthropic-ratelimit-output-tokens-remaining": [
-            "80000"
+            "800000"
           ],
           "anthropic-ratelimit-output-tokens-reset": [
-            "2026-02-18T16:32:24Z"
+            "2026-02-25T12:17:55Z"
           ],
           "anthropic-ratelimit-requests-limit": [
             "4000"
@@ -386,22 +158,22 @@
             "3999"
           ],
           "anthropic-ratelimit-requests-reset": [
-            "2026-02-18T16:32:23Z"
+            "2026-02-25T12:17:54Z"
           ],
           "anthropic-ratelimit-tokens-limit": [
-            "480000"
+            "4800000"
           ],
           "anthropic-ratelimit-tokens-remaining": [
-            "480000"
+            "4800000"
           ],
           "anthropic-ratelimit-tokens-reset": [
-            "2026-02-18T16:32:23Z"
+            "2026-02-25T12:17:54Z"
           ],
           "cf-cache-status": [
             "DYNAMIC"
           ],
           "cf-ray": [
-            "9cfeeb8ffff282e8-GIG"
+            "9d37246abc8ef46b-GRU"
           ],
           "connection": [
             "keep-alive"
@@ -413,10 +185,10 @@
             "application/json"
           ],
           "date": [
-            "Wed, 18 Feb 2026 16:32:24 GMT"
+            "Wed, 25 Feb 2026 12:17:55 GMT"
           ],
           "request-id": [
-            "req_011CYFrZGyfDkuPNKhhepPHa"
+            "req_011CYUmpAcpAo8WLYmGvhE5p"
           ],
           "server": [
             "cloudflare"
@@ -428,7 +200,7 @@
             "chunked"
           ],
           "x-envoy-upstream-service-time": [
-            "1150"
+            "748"
           ],
           "x-robots-tag": [
             "none"
@@ -438,7 +210,7 @@
       }
     },
     {
-      "recorded_at": "2026-02-18T16:32:25.951501Z",
+      "recorded_at": "2026-02-25T12:17:56.177644Z",
       "request": {
         "body_json": {
           "max_tokens": 4096,
@@ -455,44 +227,15 @@
             {
               "content": [
                 {
-                  "text": "I'll help you get the weather and time for San Francisco by using both available tools.\n\nFirst, let's check the weather:",
-                  "type": "text"
-                },
-                {
-                  "id": "toolu_01VToT8Kf5U2KEHpqz8DrnaL",
+                  "id": "toolu_01QHp5qo8pCSCCs6Gvu63zgx",
                   "input": {
                     "city": "San Francisco"
                   },
                   "name": "get_weather",
                   "type": "tool_use"
-                }
-              ],
-              "role": "assistant"
-            },
-            {
-              "content": [
-                {
-                  "content": [
-                    {
-                      "text": "72°F and sunny",
-                      "type": "text"
-                    }
-                  ],
-                  "is_error": false,
-                  "tool_use_id": "toolu_01VToT8Kf5U2KEHpqz8DrnaL",
-                  "type": "tool_result"
-                }
-              ],
-              "role": "user"
-            },
-            {
-              "content": [
-                {
-                  "text": "Now, let's get the current time:",
-                  "type": "text"
                 },
                 {
-                  "id": "toolu_01W15RH5CPczoTg6GPM8TTRQ",
+                  "id": "toolu_01DxRGY2pTVSKCMtL8WU3Syc",
                   "input": {
                     "city": "San Francisco"
                   },
@@ -507,19 +250,30 @@
                 {
                   "content": [
                     {
+                      "text": "72°F and sunny",
+                      "type": "text"
+                    }
+                  ],
+                  "is_error": false,
+                  "tool_use_id": "toolu_01QHp5qo8pCSCCs6Gvu63zgx",
+                  "type": "tool_result"
+                },
+                {
+                  "content": [
+                    {
                       "text": "2:30 PM",
                       "type": "text"
                     }
                   ],
                   "is_error": false,
-                  "tool_use_id": "toolu_01W15RH5CPczoTg6GPM8TTRQ",
+                  "tool_use_id": "toolu_01DxRGY2pTVSKCMtL8WU3Syc",
                   "type": "tool_result"
                 }
               ],
               "role": "user"
             }
           ],
-          "model": "claude-3-5-haiku-latest",
+          "model": "claude-haiku-4-5-20251001",
           "stream": false,
           "system": [
             {
@@ -579,7 +333,7 @@
             "application/json"
           ],
           "user-agent": [
-            "req/0.5.16"
+            "req/0.5.17"
           ]
         },
         "method": "POST",
@@ -590,12 +344,12 @@
         "body_json": {
           "content": [
             {
-              "text": "Here's a summary for you:\n- Weather in San Francisco: 72°F and sunny\n- Current time in San Francisco: 2:30 PM\n\nIs there anything else I can help you with?",
+              "text": "Great! Here's the current information for San Francisco:\n\n- **Weather**: 72°F and sunny ☀️\n- **Time**: 2:30 PM\n\nIt's a beautiful afternoon in San Francisco!",
               "type": "text"
             }
           ],
-          "id": "msg_01CbnhccYiJkwnCK3n4nonmd",
-          "model": "claude-3-5-haiku-20241022",
+          "id": "msg_01MKSgAeX2YLBgE7S77wzxPo",
+          "model": "claude-haiku-4-5-20251001",
           "role": "assistant",
           "stop_reason": "end_turn",
           "stop_sequence": null,
@@ -608,8 +362,8 @@
             "cache_creation_input_tokens": 0,
             "cache_read_input_tokens": 0,
             "inference_geo": "not_available",
-            "input_tokens": 579,
-            "output_tokens": 49,
+            "input_tokens": 797,
+            "output_tokens": 50,
             "service_tier": "standard"
           }
         },
@@ -619,22 +373,22 @@
             "a8b30265-cdb3-4bc6-8798-158fb659a7f5"
           ],
           "anthropic-ratelimit-input-tokens-limit": [
-            "400000"
+            "4000000"
           ],
           "anthropic-ratelimit-input-tokens-remaining": [
-            "400000"
+            "4000000"
           ],
           "anthropic-ratelimit-input-tokens-reset": [
-            "2026-02-18T16:32:24Z"
+            "2026-02-25T12:17:55Z"
           ],
           "anthropic-ratelimit-output-tokens-limit": [
-            "80000"
+            "800000"
           ],
           "anthropic-ratelimit-output-tokens-remaining": [
-            "80000"
+            "800000"
           ],
           "anthropic-ratelimit-output-tokens-reset": [
-            "2026-02-18T16:32:25Z"
+            "2026-02-25T12:17:56Z"
           ],
           "anthropic-ratelimit-requests-limit": [
             "4000"
@@ -643,22 +397,22 @@
             "3999"
           ],
           "anthropic-ratelimit-requests-reset": [
-            "2026-02-18T16:32:24Z"
+            "2026-02-25T12:17:55Z"
           ],
           "anthropic-ratelimit-tokens-limit": [
-            "480000"
+            "4800000"
           ],
           "anthropic-ratelimit-tokens-remaining": [
-            "480000"
+            "4800000"
           ],
           "anthropic-ratelimit-tokens-reset": [
-            "2026-02-18T16:32:24Z"
+            "2026-02-25T12:17:55Z"
           ],
           "cf-cache-status": [
             "DYNAMIC"
           ],
           "cf-ray": [
-            "9cfeeb98085182e8-GIG"
+            "9d3724708f52f46b-GRU"
           ],
           "connection": [
             "keep-alive"
@@ -670,10 +424,10 @@
             "application/json"
           ],
           "date": [
-            "Wed, 18 Feb 2026 16:32:25 GMT"
+            "Wed, 25 Feb 2026 12:17:56 GMT"
           ],
           "request-id": [
-            "req_011CYFrZNXHnVA4mbJt5iTWS"
+            "req_011CYUmpEaSFHVZhBVd8Z7bD"
           ],
           "server": [
             "cloudflare"
@@ -685,7 +439,7 @@
             "chunked"
           ],
           "x-envoy-upstream-service-time": [
-            "1496"
+            "739"
           ],
           "x-robots-tag": [
             "none"

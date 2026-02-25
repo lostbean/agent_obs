@@ -256,7 +256,7 @@ defmodule AgentObs.E2ESpanTest do
           fn plug ->
             {:ok, _response} =
               AgentObs.ReqLLM.trace_generate_text(
-                "anthropic:claude-3-5-haiku-latest",
+                "anthropic:claude-haiku-4-5-20251001",
                 [%{role: "user", content: "Say hello in one word"}],
                 api_key: System.get_env("ANTHROPIC_API_KEY", "test-key"),
                 req_http_options: [plug: plug]
@@ -331,7 +331,7 @@ defmodule AgentObs.E2ESpanTest do
 
             llm =
               ChatAnthropic.new!(%{
-                model: "claude-3-5-haiku-latest",
+                model: "claude-haiku-4-5-20251001",
                 api_key: System.get_env("ANTHROPIC_API_KEY", "test-key"),
                 req_opts: [plug: plug]
               })
@@ -387,7 +387,7 @@ defmodule AgentObs.E2ESpanTest do
 
             model =
               ChatAnthropic.new!(%{
-                model: "claude-3-5-haiku-latest",
+                model: "claude-haiku-4-5-20251001",
                 api_key: System.get_env("ANTHROPIC_API_KEY", "test-key"),
                 req_opts: [plug: plug]
               })
@@ -470,7 +470,7 @@ defmodule AgentObs.E2ESpanTest do
 
             model =
               ChatAnthropic.new!(%{
-                model: "claude-3-5-haiku-latest",
+                model: "claude-haiku-4-5-20251001",
                 api_key: System.get_env("ANTHROPIC_API_KEY", "test-key"),
                 req_opts: [plug: plug]
               })
@@ -496,7 +496,7 @@ defmodule AgentObs.E2ESpanTest do
               })
 
             {:ok, _final_state} =
-              Agent.execute(agent, state, callbacks: AgentObs.LangChain.callbacks())
+              Agent.execute(agent, state, callbacks: [AgentObs.LangChain.callbacks()])
 
             unless @otlp_export do
               spans = receive_all_spans()
@@ -613,6 +613,11 @@ defmodule AgentObs.E2ESpanTest do
 
             agent_id = "sagents-subagent-test-#{System.unique_integer([:positive])}"
 
+            # Sagents.Registry must be running for SubAgentsDynamicSupervisor
+            unless Process.whereis(Sagents.Registry) do
+              Registry.start_link(keys: :unique, name: Sagents.Registry)
+            end
+
             {:ok, _sup} =
               Sagents.SubAgentsDynamicSupervisor.start_link(agent_id: agent_id)
 
@@ -635,7 +640,7 @@ defmodule AgentObs.E2ESpanTest do
 
             model =
               ChatAnthropic.new!(%{
-                model: "claude-3-5-haiku-latest",
+                model: "claude-haiku-4-5-20251001",
                 api_key: System.get_env("ANTHROPIC_API_KEY", "test-key"),
                 req_opts: [plug: plug]
               })
@@ -673,7 +678,7 @@ defmodule AgentObs.E2ESpanTest do
               })
 
             {:ok, _final_state} =
-              Agent.execute(agent, state, callbacks: AgentObs.LangChain.callbacks())
+              Agent.execute(agent, state, callbacks: [AgentObs.LangChain.callbacks()])
 
             unless @otlp_export do
               spans = receive_all_spans()
