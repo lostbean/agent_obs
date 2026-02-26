@@ -306,6 +306,9 @@ defmodule AgentObs.LangChain do
     base = %{
       on_message_processed: fn chain, message ->
         if Map.get(message, :role) == :assistant do
+          # Close any orphaned LLM span from a previous interrupted iteration
+          close_llm_span(cb_key, extra_metadata)
+
           # LLM just responded — emit LLM :start now so tool spans nest under it
           model = model_override || extract_model_name(chain.llm)
           input_messages = extract_input_messages(chain)

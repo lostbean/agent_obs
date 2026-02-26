@@ -271,6 +271,88 @@ defmodule AgentObs.LangChainTest do
 
       :telemetry.detach(handler_id)
     end
+
+    test "on_message_processed closes orphaned LLM span before opening a new one" do
+      cb = AgentObs.LangChain.callbacks(model: "openai/gpt-4o")
+
+      handler_id = "test-langchain-orphan-#{System.unique_integer()}"
+      test_pid = self()
+
+      :telemetry.attach_many(
+        handler_id,
+        [
+          [:agent_obs, :llm, :start],
+          [:agent_obs, :llm, :stop]
+        ],
+        fn event_name, _measurements, _metadata, _config ->
+          send(test_pid, {:event, event_name})
+        end,
+        nil
+      )
+
+      chain =
+        mock_chain(messages: [Message.new_user!("Hi")])
+        |> LLMChain.add_message(Message.new_assistant!("Hello!"))
+
+      # First on_message_processed opens a span (simulates normal LLM response)
+      cb.on_message_processed.(chain, Message.new_assistant!("Hello!"))
+      assert_receive {:event, [:agent_obs, :llm, :start]}
+
+      # Second on_message_processed WITHOUT closing the first span
+      # (simulates resume after a pre-tool HITL interrupt)
+      cb.on_message_processed.(chain, Message.new_assistant!("Hello again!"))
+
+      # The orphaned span should be closed before the new one opens
+      assert_receive {:event, [:agent_obs, :llm, :stop]}
+      assert_receive {:event, [:agent_obs, :llm, :start]}
+
+      # Clean up: close the second span
+      cb.on_llm_token_usage.(chain, TokenUsage.new!(%{input: 1, output: 1}))
+
+      :telemetry.detach(handler_id)
+    end
+
+    test "on_message_processed works normally when no orphan exists" do
+      cb = AgentObs.LangChain.callbacks(model: "openai/gpt-4o")
+
+      handler_id = "test-langchain-no-orphan-#{System.unique_integer()}"
+      test_pid = self()
+
+      :telemetry.attach_many(
+        handler_id,
+        [
+          [:agent_obs, :llm, :start],
+          [:agent_obs, :llm, :stop]
+        ],
+        fn event_name, _measurements, _metadata, _config ->
+          send(test_pid, {:event, event_name})
+        end,
+        nil
+      )
+
+      chain =
+        mock_chain(messages: [Message.new_user!("Hi")])
+        |> LLMChain.add_message(Message.new_assistant!("Hello!"))
+
+      # Normal flow: message processed, then closed via token usage (no tool calls)
+      cb.on_message_processed.(chain, Message.new_assistant!("Hello!"))
+      assert_receive {:event, [:agent_obs, :llm, :start]}
+
+      cb.on_llm_token_usage.(chain, TokenUsage.new!(%{input: 10, output: 5}))
+      assert_receive {:event, [:agent_obs, :llm, :stop]}
+
+      # Second iteration — no orphan should exist, so no spurious :stop
+      cb.on_message_processed.(chain, Message.new_assistant!("Hello again!"))
+      assert_receive {:event, [:agent_obs, :llm, :start]}
+
+      # Verify no spurious :stop was emitted between the first :stop and second :start
+      refute_received {:event, [:agent_obs, :llm, :stop]}
+
+      # Clean up
+      cb.on_llm_token_usage.(chain, TokenUsage.new!(%{input: 1, output: 1}))
+
+      :telemetry.detach(handler_id)
+    end
   end
 
   describe "tool tracing via callbacks" do
