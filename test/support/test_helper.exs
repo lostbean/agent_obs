@@ -4,53 +4,89 @@ defmodule AgentObs.TestHelper do
 
   Provides utilities for capturing and asserting on OpenTelemetry spans
   during testing without requiring actual backend connections.
+
+  Uses `otel_exporter_pid` to route exported spans to the test process
+  as `{:span, SpanRecord}` messages.
   """
+
+  require Record
+
+  # Define Elixir record accessors from the Erlang #span{} record.
+  # Fields: trace_id, span_id, tracestate, parent_span_id, parent_span_is_remote,
+  #         name, kind, start_time, end_time, attributes, events, links,
+  #         status, trace_flags, is_recording, instrumentation_scope
+  Record.defrecord(:span, Record.extract(:span, from: "deps/opentelemetry/include/otel_span.hrl"))
 
   @doc """
-  Captures all spans created during the execution of a function.
+  Configures `otel_exporter_pid` to send spans to the calling process,
+  then executes the given function, flushes the processor, and collects
+  all exported spans.
 
-  Uses OpenTelemetry's in-process exporter to collect spans without
-  sending them to an external backend.
-
-  ## Examples
-
-      spans = capture_spans(fn ->
-        AgentObs.trace_agent("test", %{input: "test"}, fn ->
-          {:ok, "result"}
-        end)
-      end)
-
-      assert length(spans) == 1
+  Returns `{function_result, spans}` where spans is a list of Erlang
+  span records.
   """
   def capture_spans(fun) when is_function(fun, 0) do
-    # Start a simple span processor with in-memory collector
-    collector_pid = start_span_collector()
+    pid = self()
+
+    # Point the exporter at this process.
+    # Detect whether the test env uses batch or simple processor.
+    set_exporter(pid)
 
     result =
       try do
-        # Execute the function that should create spans
         fun.()
       after
-        # Give spans time to be processed
-        Process.sleep(50)
+        # Force flush to ensure all spans are exported
+        force_flush()
+        Process.sleep(100)
       end
 
-    # Get collected spans
-    spans = get_collected_spans(collector_pid)
-    stop_span_collector(collector_pid)
+    # Collect all span messages
+    spans = collect_span_messages(500)
 
     {result, spans}
   end
 
+  defp set_exporter(pid) do
+    cond do
+      Process.whereis(:otel_batch_processor_global) ->
+        :otel_batch_processor.set_exporter(:otel_exporter_pid, pid)
+
+      Process.whereis(:otel_simple_processor_global) ->
+        :otel_simple_processor.set_exporter(:otel_exporter_pid, pid)
+
+      true ->
+        raise "No OTel span processor found. Ensure :opentelemetry is started."
+    end
+  end
+
+  defp force_flush do
+    cond do
+      Process.whereis(:otel_batch_processor_global) ->
+        :otel_batch_processor.force_flush(%{reg_name: :otel_batch_processor_global})
+
+      Process.whereis(:otel_simple_processor_global) ->
+        :otel_simple_processor.force_flush(%{reg_name: :otel_simple_processor_global})
+
+      true ->
+        :ok
+    end
+  end
+
+  defp collect_span_messages(timeout) do
+    receive do
+      {:span, span_record} ->
+        [span_record | collect_span_messages(timeout)]
+    after
+      timeout -> []
+    end
+  end
+
   @doc """
   Asserts that a span with the given name exists in the list of spans.
-
-  ## Examples
-
-      assert_span_exists(spans, "my_agent")
   """
   def assert_span_exists(spans, expected_name) do
-    span_names = Enum.map(spans, & &1.name)
+    span_names = Enum.map(spans, &span_name/1)
 
     if expected_name in span_names do
       :ok
@@ -67,25 +103,17 @@ defmodule AgentObs.TestHelper do
   Finds a span by name in the list of spans.
 
   Returns the first matching span or nil if not found.
-
-  ## Examples
-
-      span = find_span(spans, "my_agent")
-      assert span.attributes["input.value"] == "test"
   """
   def find_span(spans, name) do
-    Enum.find(spans, &(&1.name == name))
+    Enum.find(spans, &(span_name(&1) == name))
   end
 
   @doc """
   Asserts that a span has a specific attribute with the expected value.
-
-  ## Examples
-
-      assert_span_attribute(span, "llm.model", "gpt-4o")
   """
-  def assert_span_attribute(span, key, expected_value) do
-    actual_value = get_in(span, [:attributes, key])
+  def assert_span_attribute(span_record, key, expected_value) do
+    attrs = span_attributes(span_record)
+    actual_value = Map.get(attrs, key)
 
     if actual_value == expected_value do
       :ok
@@ -95,27 +123,24 @@ defmodule AgentObs.TestHelper do
         Span attribute mismatch for "#{key}":
         Expected: #{inspect(expected_value)}
         Actual: #{inspect(actual_value)}
+        Available: #{inspect(attrs)}
         """
     end
   end
 
   @doc """
   Asserts that a span has a specific attribute (regardless of value).
-
-  ## Examples
-
-      assert_span_has_attribute(span, "openinference.span.kind")
   """
-  def assert_span_has_attribute(span, key) do
-    if Map.has_key?(span.attributes || %{}, key) do
+  def assert_span_has_attribute(span_record, key) do
+    attrs = span_attributes(span_record)
+
+    if Map.has_key?(attrs, key) do
       :ok
     else
-      available_keys = Map.keys(span.attributes || %{})
-
       raise ExUnit.AssertionError,
         message: """
         Span does not have attribute "#{key}".
-        Available attributes: #{inspect(available_keys)}
+        Available attributes: #{inspect(Map.keys(attrs))}
         """
     end
   end
@@ -124,12 +149,6 @@ defmodule AgentObs.TestHelper do
   Asserts parent-child relationship between two spans.
 
   Verifies that child_span's parent_span_id matches parent_span's span_id.
-
-  ## Examples
-
-      parent = find_span(spans, "agent")
-      child = find_span(spans, "llm_call")
-      assert_span_parent(child, parent)
   """
   def assert_span_parent(child_span, parent_span) do
     parent_id = extract_span_id(parent_span)
@@ -141,59 +160,64 @@ defmodule AgentObs.TestHelper do
       raise ExUnit.AssertionError,
         message: """
         Span parent mismatch:
-        Expected child's parent_span_id to match parent's span_id
-        Parent span_id: #{inspect(parent_id)}
-        Child parent_span_id: #{inspect(child_parent_id)}
+          Parent: #{inspect(span_name(parent_span))} (span_id: #{inspect(parent_id)})
+          Child:  #{inspect(span_name(child_span))} (parent_span_id: #{inspect(child_parent_id)})
+          Expected child's parent_span_id to match parent's span_id.
         """
     end
   end
 
   @doc """
-  Builds a mock telemetry span collector process.
-
-  This is used internally by capture_spans/1.
+  Asserts that two spans are siblings (have the same parent_span_id).
   """
-  def start_span_collector do
-    {:ok, pid} = Agent.start_link(fn -> [] end)
-    pid
-  end
+  def assert_span_siblings(span_a, span_b) do
+    parent_a = extract_parent_span_id(span_a)
+    parent_b = extract_parent_span_id(span_b)
 
-  @doc """
-  Retrieves all collected spans from the collector.
-  """
-  def get_collected_spans(collector_pid) do
-    # Since we're using OpenTelemetry's built-in simple processor in test mode,
-    # we need to read spans using OTel's test utilities
-    # For now, return empty list - this will be enhanced when we integrate
-    # with actual OTel test exporter
-    Agent.get(collector_pid, & &1)
-  end
-
-  @doc """
-  Stops the span collector process.
-  """
-  def stop_span_collector(collector_pid) do
-    Agent.stop(collector_pid)
-  end
-
-  # Private helpers
-
-  defp extract_span_id(span) do
-    # OpenTelemetry span records have a span_id field
-    # The actual structure depends on OTel version
-    case span do
-      %{span_id: id} -> id
-      {_, _, id, _, _, _, _, _, _, _, _, _} -> id
-      _ -> nil
+    if parent_a == parent_b do
+      :ok
+    else
+      raise ExUnit.AssertionError,
+        message: """
+        Spans are not siblings:
+          Span A: #{inspect(span_name(span_a))} (parent_span_id: #{inspect(parent_a)})
+          Span B: #{inspect(span_name(span_b))} (parent_span_id: #{inspect(parent_b)})
+          Expected both to have the same parent_span_id.
+        """
     end
   end
 
-  defp extract_parent_span_id(span) do
-    # OpenTelemetry span records have a parent_span_id field
-    case span do
-      %{parent_span_id: id} -> id
-      {_, _, _, id, _, _, _, _, _, _, _, _} -> id
-      _ -> nil
+  # -- Span record accessors --
+
+  @doc "Extract span_id from a span record."
+  def extract_span_id(span_record), do: span(span_record, :span_id)
+
+  @doc "Extract parent_span_id from a span record."
+  def extract_parent_span_id(span_record), do: span(span_record, :parent_span_id)
+
+  @doc "Extract name from a span record."
+  def span_name(span_record), do: span(span_record, :name)
+
+  @doc "Extract attributes as a plain map from a span record."
+  def span_attributes(span_record) do
+    attrs = span(span_record, :attributes)
+    otel_attributes_to_map(attrs)
+  end
+
+  # -- Private helpers --
+
+  defp otel_attributes_to_map(attrs) when is_map(attrs) do
+    case Map.get(attrs, :map) do
+      map when is_map(map) -> map
+      _ -> attrs
     end
   end
+
+  defp otel_attributes_to_map(attrs) when is_list(attrs), do: Map.new(attrs)
+
+  defp otel_attributes_to_map({:attributes, _limit, _value_limit, _count, map})
+       when is_map(map),
+       do: map
+
+  defp otel_attributes_to_map(_), do: %{}
 end

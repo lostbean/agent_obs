@@ -14,7 +14,7 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
   - `AGENT` - Agent loop or orchestration
   - `LLM` - Large Language Model API call
   - `TOOL` - Tool or function execution
-  - `CHAIN` - Sequence of operations (not used in AgentObs currently)
+  - `CHAIN` - Sequence of operations (e.g., orchestrator iteration)
   - `RETRIEVER` - Vector/document retrieval (not used in AgentObs currently)
 
   ## Key Attributes
@@ -39,7 +39,7 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
 
   ## Parameters
 
-  - `event_type` - One of `:agent`, `:tool`, `:llm`, `:prompt`
+  - `event_type` - One of `:agent`, `:tool`, `:llm`, `:chain`, `:prompt`
   - `metadata` - The start metadata from AgentObs event
 
   ## Returns
@@ -65,6 +65,7 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
       "tool.name" => metadata.name
     }
     |> maybe_add("tool.description", metadata[:description])
+    |> maybe_add("input.value", to_json_safe(metadata[:arguments]))
     |> add_tool_arguments(metadata[:arguments])
   end
 
@@ -81,6 +82,15 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
     |> maybe_add("ai.model.id", metadata.model)
     |> maybe_add("ai.model.provider", extract_provider(metadata.model))
     |> Map.merge(flatten_input_messages(metadata[:input_messages]))
+    |> maybe_add("input.value", extract_llm_input_text(metadata[:input_messages]))
+  end
+
+  def from_start_metadata(:chain, metadata) do
+    %{
+      "openinference.span.kind" => "CHAIN"
+    }
+    |> maybe_add("metadata.iteration", metadata[:iteration])
+    |> maybe_add("input.value", to_json_safe(metadata[:input]))
   end
 
   def from_start_metadata(:prompt, metadata) do
@@ -97,7 +107,7 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
 
   ## Parameters
 
-  - `event_type` - One of `:agent`, `:tool`, `:llm`, `:prompt`
+  - `event_type` - One of `:agent`, `:tool`, `:llm`, `:chain`, `:prompt`
   - `metadata` - The stop metadata from AgentObs event
   - `measurements` - Measurements map containing duration
 
@@ -134,7 +144,7 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
     |> maybe_add("llm.token_count.completion", get_in(metadata, [:tokens, :completion]))
     |> maybe_add("llm.token_count.total", get_in(metadata, [:tokens, :total]))
     |> maybe_add("llm.cost.total", metadata[:cost])
-    |> maybe_add("output.value", metadata[:finish_reason])
+    |> maybe_add("output.value", extract_llm_output_text(metadata[:output_messages]))
     # Add gen_ai usage attributes
     |> maybe_add("gen_ai.usage.input_tokens", get_in(metadata, [:tokens, :prompt]))
     |> maybe_add("gen_ai.usage.output_tokens", get_in(metadata, [:tokens, :completion]))
@@ -142,6 +152,12 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
       "gen_ai.response.finish_reasons",
       metadata[:finish_reason] && [metadata[:finish_reason]]
     )
+    |> add_duration(measurements)
+  end
+
+  def from_stop_metadata(:chain, metadata, measurements) do
+    %{}
+    |> maybe_add("output.value", to_json_safe(metadata[:output]))
     |> add_duration(measurements)
   end
 
@@ -157,7 +173,7 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
 
   ## Parameters
 
-  - `event_type` - One of `:agent`, `:tool`, `:llm`, `:prompt`
+  - `event_type` - One of `:agent`, `:tool`, `:llm`, `:chain`, `:prompt`
   - `metadata` - The exception metadata from telemetry
   - `measurements` - Measurements map containing duration
 
@@ -181,6 +197,27 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
   end
 
   # Private helper functions
+
+  defp extract_llm_input_text(nil), do: nil
+  defp extract_llm_input_text([]), do: nil
+
+  defp extract_llm_input_text(messages) do
+    messages
+    |> Enum.reverse()
+    |> Enum.find(fn msg -> get_message_field(msg, :role) in ["user", :user] end)
+    |> case do
+      nil -> nil
+      msg -> to_json_safe(get_message_field(msg, :content))
+    end
+  end
+
+  defp extract_llm_output_text(nil), do: nil
+  defp extract_llm_output_text([]), do: nil
+
+  defp extract_llm_output_text([first | _]) do
+    content = get_message_field(first, :content)
+    if content, do: to_json_safe(content)
+  end
 
   defp flatten_input_messages(nil), do: %{}
 
@@ -304,12 +341,12 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
     end)
   end
 
+  defp to_json_safe(nil), do: nil
   defp to_json_safe(value) when is_binary(value), do: value
   defp to_json_safe(value) when is_number(value), do: value
   defp to_json_safe(value) when is_boolean(value), do: value
   defp to_json_safe(value) when is_atom(value), do: to_string(value)
   defp to_json_safe(value) when is_map(value) or is_list(value), do: encode_json(value)
-  defp to_json_safe(nil), do: nil
 
   defp encode_json(value) do
     case Jason.encode(value) do
