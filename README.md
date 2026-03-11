@@ -21,6 +21,8 @@ observability backends through a pluggable handler architecture.
 - 🌟 **OpenInference support** - Full semantic conventions for Arize Phoenix
 - 📊 **Rich metadata tracking** - Token usage, costs, tool calls, and more
 - 🚀 **Built on OTP** - Supervised handlers with fault tolerance
+- 🔗 **Jido integration (optional)** - Zero-code tracing for Jido composer
+  workflows
 - 🧪 **Backend-agnostic** - Standardized event schema independent of backends
 
 ## Architecture
@@ -217,6 +219,35 @@ object = ReqLLM.Response.object(response)
 
 See the [demo agent](demo/lib/demo/agent.ex) and
 [ReqLLM integration guide](guides/req_llm_integration.md) for complete examples.
+
+## Jido Integration (Optional)
+
+For applications using [Jido](https://hexdocs.pm/jido), AgentObs provides
+`AgentObs.JidoTracer` — a drop-in `Jido.Observe.Tracer` implementation that
+automatically instruments all composer events with OpenTelemetry spans.
+
+```elixir
+# Add to your deps
+{:jido, "~> 2.0"}
+
+# Configure Jido to use the tracer
+config :jido, :observability,
+  tracer: AgentObs.JidoTracer
+```
+
+That's it. All `[:jido, :composer, :agent|:llm|:tool]` events are automatically
+mapped to AgentObs event types and traced with OpenInference semantic conventions.
+Parent-child span nesting is preserved, so you get a full trace tree in Phoenix:
+
+```
+weather_assistant (agent)
+  ├── gpt-4o #1 (llm)
+  ├── get_weather (tool)
+  └── gpt-4o #2 (llm)
+```
+
+See the [Jido integration guide](guides/jido_integration.md) for details on
+event mapping, metadata translation, and advanced usage.
 
 ## API Reference
 

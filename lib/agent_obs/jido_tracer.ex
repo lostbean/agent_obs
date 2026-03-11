@@ -1,18 +1,25 @@
 defmodule AgentObs.JidoTracer do
   @moduledoc """
-  Jido.Observe.Tracer implementation that bridges Jido composer events to
+  A `Jido.Observe.Tracer` implementation that bridges Jido composer events to
   AgentObs OpenTelemetry spans with OpenInference semantic conventions.
 
   This module translates Jido's event prefixes and metadata into the AgentObs
   format expected by `AgentObs.Handlers.Phoenix.Translator`, then creates and
   manages OpenTelemetry spans with proper parent-child nesting.
 
-  ## Configuration
+  ## Setup
 
-  In your Jido application config:
+  Add `jido` to your deps (it's an optional dependency of `agent_obs`):
 
+      {:jido, "~> 2.0"}
+
+  Then point Jido at this tracer:
+
+      # config/config.exs
       config :jido, :observability,
         tracer: AgentObs.JidoTracer
+
+  No other changes are needed — all composer events are automatically traced.
 
   ## Event Prefix Mapping
 
@@ -21,7 +28,27 @@ defmodule AgentObs.JidoTracer do
   | `[:jido, :composer, :agent, ...]` | `:agent` |
   | `[:jido, :composer, :llm, ...]` | `:llm` |
   | `[:jido, :composer, :tool, ...]` | `:tool` |
+  | `[:jido, :composer, :iteration, ...]` | `:chain` |
   | anything else | `:agent` (fallback) |
+
+  ## Metadata Translation
+
+  Jido metadata fields are mapped to AgentObs conventions:
+
+  - **Agent events:** `:query` / `:input` → `:input`, `:name` / `:agent_module` → `:name`
+  - **LLM events:** `:model`, `:conversation` → normalized `:input_messages`, `:iteration`
+  - **Tool events:** `:tool_name` / `:node_name` → `:name`, `:arguments` / `:params`
+
+  ## Error Handling
+
+  All callbacks are wrapped in `rescue` blocks. If span creation or attribute
+  translation fails, a warning is logged and execution continues — the tracer
+  will never crash your application.
+
+  ## See Also
+
+  - [Jido Integration Guide](guides/jido_integration.md) for full documentation
+  - `AgentObs.Handlers.Phoenix.Translator` for attribute generation details
   """
 
   @behaviour Jido.Observe.Tracer

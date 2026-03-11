@@ -54,6 +54,11 @@ defmodule AgentObs do
   - `trace_llm/3` - Instruments LLM API calls
   - `trace_prompt/3` - Instruments prompt template rendering
 
+  ## Integrations
+
+  - `AgentObs.ReqLLM` - Automatic instrumentation for ReqLLM streaming calls
+  - `AgentObs.JidoTracer` - Zero-code tracing for Jido composer workflows
+
   ## Low-Level API
 
   - `emit/2` - Emits custom telemetry events
