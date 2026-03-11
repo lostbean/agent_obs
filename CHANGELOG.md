@@ -8,6 +8,17 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-03-11
+
+### Added
+
+- `AgentObs.JidoTracer` — drop-in `Jido.Observe.Tracer` for automatic composer instrumentation
+- Jido integration guide (`guides/jido_integration.md`)
+- Jido integration section in README
+- `jido ~> 2.0` as optional dependency
+
+## [0.1.3] - 2026-03-08
+
 ### Added
 
 - Initial implementation of AgentObs library
