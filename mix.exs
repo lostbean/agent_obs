@@ -85,6 +85,7 @@ defmodule AgentObs.MixProject do
         "guides/configuration.md",
         "guides/instrumentation.md",
         "guides/req_llm_integration.md",
+        "guides/jido_integration.md",
         "guides/custom_handlers.md"
       ],
       groups_for_extras: [
@@ -93,6 +94,7 @@ defmodule AgentObs.MixProject do
           "guides/configuration.md",
           "guides/instrumentation.md",
           "guides/req_llm_integration.md",
+          "guides/jido_integration.md",
           "guides/custom_handlers.md"
         ]
       ],
@@ -108,7 +110,8 @@ defmodule AgentObs.MixProject do
           AgentObs.Handlers.Phoenix.Translator
         ],
         Integrations: [
-          AgentObs.ReqLLM
+          AgentObs.ReqLLM,
+          AgentObs.JidoTracer
         ],
         Infrastructure: [
           AgentObs.Application,
