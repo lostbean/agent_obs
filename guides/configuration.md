@@ -194,6 +194,27 @@ config :opentelemetry_exporter,
   ]
 ```
 
+#### Multimodal Content
+
+When LLM input messages contain non-text content parts (`:file`, `:image`,
+`:audio`), the Phoenix handler renders them as compact placeholders by default:
+
+```
+[file: application/pdf, 124583 bytes]
+```
+
+This keeps spans small. To inline the raw base64 data instead — useful for
+Phoenix's playground/replay feature in development — opt in:
+
+```elixir
+config :agent_obs, include_multimodal_data: true
+```
+
+**Warning:** Inlined base64 data can make spans very large (a 1 MB PDF becomes
+~1.4 MB of base64 in the span attribute, sent over OTLP on every call). Leave
+this off in production; enable it only in dev/staging environments where you
+need to replay LLM calls from the trace UI.
+
 ### Generic Handler
 
 The Generic handler translates AgentObs events to standard OpenTelemetry spans
