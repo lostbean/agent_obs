@@ -8,7 +8,7 @@ defmodule AgentObs.MixProject do
     [
       app: :agent_obs,
       version: @version,
-      elixir: "~> 1.14",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: description(),
@@ -31,20 +31,20 @@ defmodule AgentObs.MixProject do
   defp deps do
     [
       # Core telemetry and OpenTelemetry dependencies
-      {:telemetry, "~> 1.0"},
-      {:opentelemetry_api, "~> 1.2"},
-      {:opentelemetry, "~> 1.3"},
-      {:opentelemetry_exporter, "~> 1.6"},
-      {:jason, "~> 1.2"},
+      {:telemetry, "~> 1.4"},
+      {:opentelemetry_api, "~> 1.5"},
+      {:opentelemetry, "~> 1.7"},
+      {:opentelemetry_exporter, "~> 1.10"},
+      {:jason, "~> 1.4"},
 
       # Optional dependencies for integrations
-      {:req_llm, "~> 1.0", optional: true},
-      {:jido, "~> 2.0", optional: true},
+      {:req_llm, "~> 1.16", optional: true},
+      {:jido, "~> 2.3", optional: true},
 
       # Development and testing dependencies
-      {:ex_doc, "~> 0.28", only: :dev, runtime: false},
-      {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
-      {:credo, "~> 1.6", only: [:dev, :test], runtime: false}
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 

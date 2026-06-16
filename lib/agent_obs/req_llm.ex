@@ -828,12 +828,12 @@ defmodule AgentObs.ReqLLM do
 
   defp normalize_model_string(model) when is_binary(model), do: model
 
-  defp normalize_model_string(%{model: model}) when is_binary(model), do: model
-
   defp normalize_model_string(%{provider: provider, model: model})
        when is_atom(provider) and is_binary(model) do
     "#{provider}:#{model}"
   end
+
+  defp normalize_model_string(%{model: model}) when is_binary(model), do: model
 
   defp normalize_model_string(model), do: inspect(model)
 
