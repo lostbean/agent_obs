@@ -226,7 +226,9 @@ defmodule AgentObs.Handlers.Phoenix.TranslatorTest do
       }
 
       attributes = Translator.from_start_metadata(:llm, metadata)
-      assert attributes["llm.input_messages.0.message.content"] == "[image: image/png, 2048 bytes]"
+
+      assert attributes["llm.input_messages.0.message.content"] ==
+               "[image: image/png, 2048 bytes]"
     end
 
     test "inlines raw multimodal data when include_multimodal_data is enabled" do
