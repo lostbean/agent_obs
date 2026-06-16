@@ -371,23 +371,51 @@ defmodule AgentObs.Handlers.Phoenix.Translator do
     end
   end
 
-  # Extract text from ContentPart structs or list of plain strings
+  # Extract text from ContentPart structs or list of plain strings.
+  #
+  # Non-text parts (file/image/audio) render as a placeholder by default
+  # (`[file: application/pdf, 1024 bytes]`) so traces stay small. Set
+  # `config :agent_obs, include_multimodal_data: true` to inline the raw
+  # base64 data instead — useful for replay/playground in dev, but produces
+  # very large spans, so leave off in production.
   # Note: Only called when value is a list (see guard on line 329)
   defp extract_text_content([]), do: nil
 
   defp extract_text_content(content) when is_list(content) do
+    include_data? = Application.get_env(:agent_obs, :include_multimodal_data, false)
+
     content
-    |> Enum.map_join("\n", fn
-      %{type: :text, text: text} -> text
-      %{text: text} -> text
-      text when is_binary(text) -> text
-      _ -> ""
-    end)
+    |> Enum.map_join("\n", &content_part_to_text(&1, include_data?))
     |> case do
       "" -> nil
       text -> text
     end
   end
+
+  defp content_part_to_text(%{type: :text, text: text}, _) when is_binary(text), do: text
+  defp content_part_to_text(%{text: text}, _) when is_binary(text), do: text
+  defp content_part_to_text(text, _) when is_binary(text), do: text
+
+  defp content_part_to_text(%{type: type, data: data, media_type: media_type}, true)
+       when type in [:file, :image, :audio] and is_binary(data) do
+    "[#{type}: #{media_type}, #{byte_size(data)} bytes]\n#{data}"
+  end
+
+  defp content_part_to_text(%{type: type, data: data, media_type: media_type}, false)
+       when type in [:file, :image, :audio] and is_binary(data) do
+    "[#{type}: #{media_type}, #{byte_size(data)} bytes]"
+  end
+
+  defp content_part_to_text(%{type: :image_url, url: url}, _) when is_binary(url) do
+    "[image_url: #{url}]"
+  end
+
+  defp content_part_to_text(%{type: type, media_type: media_type}, _) do
+    "[#{type}: #{media_type}]"
+  end
+
+  defp content_part_to_text(%{type: type}, _), do: "[#{type}]"
+  defp content_part_to_text(_, _), do: ""
 
   # Helper to safely access tool call fields (handles both maps and structs)
   # Supports both flat format (name/arguments) and nested format (function: %{name, arguments})

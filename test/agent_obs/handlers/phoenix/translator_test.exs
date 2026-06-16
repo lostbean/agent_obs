@@ -189,6 +189,70 @@ defmodule AgentObs.Handlers.Phoenix.TranslatorTest do
       assert is_binary(content)
       assert String.contains?(content, "Entity")
     end
+
+    test "renders multimodal content parts as placeholders by default" do
+      pdf_data = String.duplicate("x", 1024)
+
+      metadata = %{
+        model: "gpt-4o",
+        input_messages: [
+          %{
+            role: "user",
+            content: [
+              %{type: :text, text: "Extract from this document."},
+              %{type: :file, data: pdf_data, media_type: "application/pdf"}
+            ]
+          }
+        ]
+      }
+
+      attributes = Translator.from_start_metadata(:llm, metadata)
+      content = attributes["llm.input_messages.0.message.content"]
+
+      assert is_binary(content)
+      assert String.contains?(content, "Extract from this document.")
+      assert String.contains?(content, "[file: application/pdf, 1024 bytes]")
+      refute String.contains?(content, pdf_data)
+    end
+
+    test "renders image content parts with media type and size by default" do
+      image_data = String.duplicate("x", 2048)
+
+      metadata = %{
+        model: "gpt-4o",
+        input_messages: [
+          %{role: "user", content: [%{type: :image, data: image_data, media_type: "image/png"}]}
+        ]
+      }
+
+      attributes = Translator.from_start_metadata(:llm, metadata)
+
+      assert attributes["llm.input_messages.0.message.content"] ==
+               "[image: image/png, 2048 bytes]"
+    end
+
+    test "inlines raw multimodal data when include_multimodal_data is enabled" do
+      Application.put_env(:agent_obs, :include_multimodal_data, true)
+      on_exit(fn -> Application.delete_env(:agent_obs, :include_multimodal_data) end)
+
+      pdf_data = String.duplicate("x", 1024)
+
+      metadata = %{
+        model: "gpt-4o",
+        input_messages: [
+          %{
+            role: "user",
+            content: [%{type: :file, data: pdf_data, media_type: "application/pdf"}]
+          }
+        ]
+      }
+
+      attributes = Translator.from_start_metadata(:llm, metadata)
+      content = attributes["llm.input_messages.0.message.content"]
+
+      assert String.contains?(content, "[file: application/pdf, 1024 bytes]")
+      assert String.contains?(content, pdf_data)
+    end
   end
 
   describe "from_stop_metadata/3 for agent events" do
