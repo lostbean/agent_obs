@@ -8,6 +8,25 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-06-16
+
+### Changed
+
+- Target Elixir 1.20 / Erlang OTP 28 in the Nix dev environment.
+- Bump all dependencies to their latest releases: `telemetry ~> 1.4`,
+  `opentelemetry_api ~> 1.5`, `opentelemetry ~> 1.7`,
+  `opentelemetry_exporter ~> 1.10`, `jason ~> 1.4`, `req_llm ~> 1.16`,
+  `jido ~> 2.3`, `ex_doc ~> 0.40`, `dialyxir ~> 1.4`, `credo ~> 1.7`.
+- Raise the minimum Elixir requirement to `~> 1.18`.
+
+### Fixed
+
+- `AgentObs.ReqLLM`: render multimodal content parts (`:file`/`:image`/`:audio`)
+  in span attributes instead of dropping them to an empty string.
+- `AgentObs.ReqLLM.normalize_model_string/1`: a more specific
+  `%{provider:, model:}` clause was unreachable, so provider-tagged models lost
+  their `"provider:model"` formatting. Reordered the clauses so it applies.
+
 ## [0.1.4] - 2026-03-11
 
 ### Added
