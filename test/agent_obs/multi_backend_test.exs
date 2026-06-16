@@ -374,8 +374,10 @@ defmodule AgentObs.MultiBackendTest do
       # States should be independent maps
       assert is_map(phoenix_state)
       assert is_map(generic_state)
-      # Handler IDs should be different (different atoms/tuples)
-      refute phoenix_state.handler_id == generic_state.handler_id
+      # Handler IDs should be different: each is tagged with its own handler
+      # atom in the first tuple element, so distinct tags prove distinct IDs.
+      assert elem(phoenix_state.handler_id, 0) == :agent_obs_phoenix
+      assert elem(generic_state.handler_id, 0) == :agent_obs_generic
 
       Phoenix.detach(phoenix_state)
       Generic.detach(generic_state)
