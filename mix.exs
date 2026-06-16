@@ -65,7 +65,7 @@ defmodule AgentObs.MixProject do
         "GitHub" => @source_url,
         "Docs" => "https://hexdocs.pm/agent_obs"
       },
-      maintainers: ["Your Name"]
+      maintainers: ["Edgar Gomes <talktoedgar@gmail.com>"]
     ]
   end
 
