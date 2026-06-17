@@ -8,6 +8,14 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-06-17
+
+### Changed
+
+- Remove Dialyzer in favor of Elixir 1.20's built-in set-theoretic type checker.
+  Drops the `dialyxir` dev dependency, the `dialyzer` project config, and the
+  Dialyzer CI step; the type-check gate is now `mix compile --warnings-as-errors`.
+
 ## [0.1.5] - 2026-06-16
 
 ### Changed
