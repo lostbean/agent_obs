@@ -380,8 +380,9 @@ mix credo --strict
 # Generate documentation
 mix docs
 
-# Run Dialyzer (type checking)
-mix dialyzer
+# Type checking (Elixir's built-in set-theoretic type checker runs at compile time;
+# treat its warnings as errors to gate on them)
+mix compile --warnings-as-errors --force
 ```
 
 ### Pre-commit Hook

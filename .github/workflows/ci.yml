@@ -38,13 +38,14 @@ jobs:
             ${{ runner.os }}-mix-
       - name: Install Mix dependencies
         run: nix develop -c mix deps.get
-      - name: Compile project
-        run: nix develop -c mix compile --warnings-as-errors
+      # Type-check gate: replaces Dialyzer. Elixir 1.20's built-in
+      # set-theoretic type checker runs during `mix compile`; its findings
+      # surface as compile warnings, and --warnings-as-errors fails CI on them.
+      - name: Compile project (type-check gate)
+        run: nix develop -c mix compile --warnings-as-errors --force
       - name: Run tests
         run: nix develop -c mix test
       - name: Check code formatting
         run: nix develop -c mix format --check-formatted
       - name: Run Credo
         run: nix develop -c mix credo
-      - name: Run Dialyzer
-        run: nix develop -c mix dialyzer
