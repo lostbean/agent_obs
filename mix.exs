@@ -14,9 +14,6 @@ defmodule AgentObs.MixProject do
       description: description(),
       package: package(),
       docs: docs(),
-      dialyzer: [
-        plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
-      ],
       aliases: aliases()
     ]
   end
@@ -43,7 +40,6 @@ defmodule AgentObs.MixProject do
 
       # Development and testing dependencies
       {:ex_doc, "~> 0.40", only: :dev, runtime: false},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end

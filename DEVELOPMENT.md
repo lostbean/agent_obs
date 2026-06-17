@@ -52,16 +52,15 @@ Configuration is in `.credo.exs`. Current settings:
 - Strict consistency checks enabled
 - TODOs allowed (warning only)
 
-### Dialyzer
+### Type checking
 
-Static type analysis using Dialyzer:
+Static type analysis is handled by Elixir's built-in set-theoretic
+(gradual) type checker, which runs automatically during `mix compile`.
+Treat its warnings as errors to gate on them:
 
 ```bash
-# Run Dialyzer (first run will be slow while building PLT)
-mix dialyzer
-
-# Clean PLT cache
-rm -rf priv/plts/
+# Type-check the project (forces a full recompile so all warnings surface)
+mix compile --warnings-as-errors --force
 ```
 
 PLT files are cached in `priv/plts/` and excluded from git.
@@ -140,10 +139,9 @@ Tests run on multiple Elixir and OTP versions:
    - Runs Credo in strict mode
    - Uses dependency and build caching
 
-2. **Dialyzer Job**
-   - Runs on latest Elixir/OTP only
-   - Caches PLT files for faster runs
-   - Performs static type analysis
+2. **Type-check gate**
+   - Part of the compile step (`mix compile --warnings-as-errors --force`)
+   - Surfaces the built-in set-theoretic type checker's findings as errors
 
 ## Code Style Guidelines
 
@@ -240,14 +238,11 @@ mix deps.get
 mix test
 ```
 
-### Dialyzer Issues
+### Type-check Issues
 
 ```bash
-# Clean PLT cache
-rm -rf priv/plts/
-
-# Rebuild PLT
-mix dialyzer
+# Force a full recompile so all type-checker warnings surface
+mix compile --warnings-as-errors --force
 ```
 
 ### Formatting Conflicts
@@ -274,5 +269,4 @@ mix format --check-formatted
 
 - **Mix tasks**: `mix help`
 - **Credo**: `mix credo --help`
-- **Dialyzer**: `mix dialyzer --help`
 - **Tests**: `mix help test`
