@@ -71,6 +71,10 @@
             wrapper = pkgs.writeShellApplication {
               inherit name;
               text = ''
+                # Typst otherwise discovers host fonts, so a document rendered
+                # on macOS can differ byte-for-byte from the same render in CI.
+                export TYPST_IGNORE_SYSTEM_FONTS=true
+
                 if [ "$#" -lt 1 ]; then
                   exec ${target.program} "$@"
                 fi
