@@ -1,14 +1,14 @@
 defmodule AgentObs.MixProject do
   use Mix.Project
 
-  @version "0.1.6"
+  @version "0.1.7"
   @source_url "https://github.com/lostbean/agent_obs"
 
   def project do
     [
       app: :agent_obs,
       version: @version,
-      elixir: "~> 1.20",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: description(),
@@ -35,8 +35,8 @@ defmodule AgentObs.MixProject do
       {:jason, "~> 1.4"},
 
       # Optional dependencies for integrations
-      {:req_llm, "~> 1.16", optional: true},
-      {:jido, "~> 2.3", optional: true},
+      {:req_llm, "~> 1.21", optional: true},
+      {:jido, "~> 2.3 and >= 2.3.3", optional: true},
 
       # Development and testing dependencies
       {:ex_doc, "~> 0.40", only: :dev, runtime: false},
@@ -77,6 +77,7 @@ defmodule AgentObs.MixProject do
         "home.md",
         "README.md",
         "CHANGELOG.md",
+        "LICENSE",
         "guides/getting_started.md",
         "guides/configuration.md",
         "guides/instrumentation.md",

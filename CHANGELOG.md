@@ -8,6 +8,16 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-09-02
+
+### Changed
+
+- Restore the supported Elixir requirement to `~> 1.18` after validating the
+  full suite on Elixir 1.18, 1.19, and 1.20 with compatible OTP releases.
+- Update the optional ReqLLM requirement to `~> 1.21` and require Jido 2.3.3
+  or later within the 2.x series.
+- Refresh locked dependencies without changing application source files.
+
 ## [0.1.6] - 2026-06-17
 
 ### Changed
@@ -31,7 +41,7 @@ and this project adheres to
 
 - `AgentObs.ReqLLM`: render multimodal content parts (`:file`/`:image`/`:audio`)
   in span attributes instead of dropping them to an empty string.
-- `AgentObs.ReqLLM.normalize_model_string/1`: a more specific
+- The private model-string normalization helper in `AgentObs.ReqLLM`: a more specific
   `%{provider:, model:}` clause was unreachable, so provider-tagged models lost
   their `"provider:model"` formatting. Reordered the clauses so it applies.
 

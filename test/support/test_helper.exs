@@ -15,7 +15,10 @@ defmodule AgentObs.TestHelper do
   # Fields: trace_id, span_id, tracestate, parent_span_id, parent_span_is_remote,
   #         name, kind, start_time, end_time, attributes, events, links,
   #         status, trace_flags, is_recording, instrumentation_scope
-  Record.defrecord(:span, Record.extract(:span, from: "deps/opentelemetry/include/otel_span.hrl"))
+  Record.defrecord(
+    :span,
+    Record.extract(:span, from: Application.app_dir(:opentelemetry, "include/otel_span.hrl"))
+  )
 
   @doc """
   Configures `otel_exporter_pid` to send spans to the calling process,

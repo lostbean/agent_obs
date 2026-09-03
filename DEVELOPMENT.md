@@ -125,21 +125,44 @@ The project includes a comprehensive CI workflow in `.github/workflows/ci.yml`:
 
 ### Test Matrix
 
-Tests run on multiple Elixir and OTP versions:
-- Elixir: 1.14, 1.15, 1.16, 1.17, 1.18
-- OTP: 25.0, 26.0, 27.0
-- Invalid combinations are excluded
+The full behavioral suite runs on each supported compatibility pair:
+
+| Elixir | OTP |
+| --- | --- |
+| 1.18.5 | 27.3.4.17 |
+| 1.19.6 | 27.3.4.17 and 28.5.0.6 |
+| 1.20.4 | 27.3.4.17, 28.5.0.6, and 29.0.6 |
+
+Each matrix entry runs dependency installation, a forced compile with warnings
+as errors, an explicit application-startup check, and the complete default
+ExUnit suite. Compilation, startup, and behavioral compatibility are separate
+steps. Integration tests that require provider credentials remain excluded by
+the test configuration.
+
+Dependencies and build artifacts use absolute, toolchain-specific paths. Cache
+keys include the operating system, Elixir, OTP, Mix environment, and both lock
+files, which prevents artifacts from crossing runtime boundaries.
+
+Formatting and Credo run once on the canonical Elixir 1.20.4 / OTP 29.0.6
+toolchain. A new Elixir or OTP line is added only after the project compiles and
+the full default suite passes for every newly claimed valid pair; unsupported
+language/runtime combinations are never added only to increase matrix size.
 
 ### CI Jobs
 
-1. **Test Job**
-   - Runs on each Elixir/OTP combination
-   - Checks formatting
-   - Runs full test suite
-   - Runs Credo in strict mode
-   - Uses dependency and build caching
+1. **Test matrix**
+   - Compiles and runs the full default suite on each supported pair
+   - Uses toolchain-isolated dependency and build caches
 
-2. **Type-check gate**
+2. **Canonical quality job**
+   - Checks formatting once
+   - Runs Credo in strict mode once
+
+3. **Design and workflow job**
+   - Runs the pinned design-layer gate through the repository flake
+   - Lints the GitHub Actions workflow
+
+4. **Type-check gate**
    - Part of the compile step (`mix compile --warnings-as-errors --force`)
    - Surfaces the built-in set-theoretic type checker's findings as errors
 
@@ -210,16 +233,11 @@ end
 
 ## Pre-commit Hooks (Optional)
 
-To automatically run checks before commits:
+Install the tracked hook configuration once, then Lefthook runs the pinned
+design gate and `mix precommit` before each commit:
 
 ```bash
-# Create a git pre-commit hook
-cat > .git/hooks/pre-commit << 'HOOK'
-#!/bin/sh
-mix precommit
-HOOK
-
-chmod +x .git/hooks/pre-commit
+nix develop -c lefthook install
 ```
 
 ## Troubleshooting

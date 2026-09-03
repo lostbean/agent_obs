@@ -1,0 +1,6 @@
+pre-commit:
+  commands:
+    design-gate:
+      run: nix run .#design-gate-check -- docs/design .
+    project-checks:
+      run: mix precommit

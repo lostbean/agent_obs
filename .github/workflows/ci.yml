@@ -1,51 +1,135 @@
 name: CI
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
 jobs:
   test:
-    name: Test on Elixir (via Nix)
+    name: Elixir ${{ matrix.elixir }} / OTP ${{ matrix.otp }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - elixir: 1.18.5
+            otp: 27.3.4.17
+          - elixir: 1.19.6
+            otp: 27.3.4.17
+          - elixir: 1.19.6
+            otp: 28.5.0.6
+          - elixir: 1.20.4
+            otp: 27.3.4.17
+          - elixir: 1.20.4
+            otp: 28.5.0.6
+          - elixir: 1.20.4
+            otp: 29.0.6
+    env:
+      MIX_ENV: test
+      MIX_DEPS_PATH: ${{ github.workspace }}/deps/elixir-${{ matrix.elixir }}-otp-${{ matrix.otp }}
+      MIX_BUILD_PATH: ${{ github.workspace }}/_build/elixir-${{ matrix.elixir }}-otp-${{ matrix.otp }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Elixir and OTP
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ matrix.elixir }}
+          otp-version: ${{ matrix.otp }}
+
+      - name: Restore toolchain-specific Mix cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.MIX_DEPS_PATH }}
+            ${{ env.MIX_BUILD_PATH }}
+          key: ${{ runner.os }}-mix-elixir-${{ matrix.elixir }}-otp-${{ matrix.otp }}-${{ env.MIX_ENV }}-${{ hashFiles('mix.lock', 'demo/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-elixir-${{ matrix.elixir }}-otp-${{ matrix.otp }}-${{ env.MIX_ENV }}-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Compile with warnings as errors
+        run: mix compile --warnings-as-errors --force
+
+      - name: Verify application startup
+        run: >-
+          mix run --no-compile -e
+          'case Application.ensure_all_started(:agent_obs) do
+          {:ok, _} -> :ok;
+          {:error, reason} -> raise inspect(reason)
+          end'
+
+      - name: Run behavioral tests
+        run: mix test
+
+  quality:
+    name: Canonical quality checks
+    runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
+      MIX_DEPS_PATH: ${{ github.workspace }}/deps/elixir-1.20.4-otp-29.0.6
+      MIX_BUILD_PATH: ${{ github.workspace }}/_build/elixir-1.20.4-otp-29.0.6
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install canonical Elixir and OTP
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: 1.20.4
+          otp-version: 29.0.6
+
+      - name: Restore canonical Mix cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.MIX_DEPS_PATH }}
+            ${{ env.MIX_BUILD_PATH }}
+          key: ${{ runner.os }}-mix-elixir-1.20.4-otp-29.0.6-${{ env.MIX_ENV }}-${{ hashFiles('mix.lock', 'demo/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-elixir-1.20.4-otp-29.0.6-${{ env.MIX_ENV }}-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Check formatting
+        run: mix format --check-formatted
+
+      - name: Run Credo
+        run: mix credo --strict
+
+  design:
+    name: Design gate and workflow lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Install Nix
-        uses: cachix/install-nix-action@v27
+        uses: cachix/install-nix-action@v31
         with:
-          nix_path: nixpkgs=channel:nixos-unstable
           extra_nix_config: |
             experimental-features = nix-command flakes
-      - name: Cache Nix store
+
+      - name: Restore Nix cache
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cache/nix
-            /nix/store
+          path: ~/.cache/nix
           key: ${{ runner.os }}-nix-${{ hashFiles('flake.nix', 'flake.lock') }}
           restore-keys: |
             ${{ runner.os }}-nix-
-      - name: Cache Mix dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            deps
-            _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-mix-
-      - name: Install Mix dependencies
-        run: nix develop -c mix deps.get
-      # Type-check gate: replaces Dialyzer. Elixir 1.20's built-in
-      # set-theoretic type checker runs during `mix compile`; its findings
-      # surface as compile warnings, and --warnings-as-errors fails CI on them.
-      - name: Compile project (type-check gate)
-        run: nix develop -c mix compile --warnings-as-errors --force
-      - name: Run tests
-        run: nix develop -c mix test
-      - name: Check code formatting
-        run: nix develop -c mix format --check-formatted
-      - name: Run Credo
-        run: nix develop -c mix credo
+
+      - name: Check design layer
+        run: nix run .#design-gate-check -- docs/design .
+
+      - name: Lint GitHub Actions workflow
+        run: nix develop -c actionlint
