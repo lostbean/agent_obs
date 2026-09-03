@@ -1,5 +1,5 @@
 <!-- agent-skills:begin -->
-<!-- framework-commit: ce4f638169b6e03fa4032cb4bea3692bdc671628 origin: git@github.com:lostbean/skills.git -->
+<!-- framework-commit: b3f823ec56bc4acd029a5289b04eadf3e3951f46 origin: git@github.com:lostbean/skills.git -->
 
 (machine-owned; do not edit inside this fence — re-run setup to refresh)
 
